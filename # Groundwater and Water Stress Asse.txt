@@ -1,0 +1,410 @@
+# Groundwater and Water Stress Assessment in India
+
+A data-driven groundwater monitoring and district-level water stress assessment system using historical groundwater observations and rainfall data from India.
+
+The project processes groundwater data from the **Central Ground Water Board (CGWB)** and rainfall normals from the **India Meteorological Department (IMD)** to analyze groundwater depletion, seasonal water-table recovery, rainfall patterns, and district-level water stress.
+
+## Overview
+
+Groundwater is an important source of water for domestic, agricultural, and industrial activities in India. Increasing groundwater extraction, changing rainfall patterns, and regional variations in recharge can contribute to groundwater stress.
+
+This project aims to identify districts experiencing groundwater stress through hydrological indicators, statistical analysis, and a composite Water Stress Index (WSI).
+
+### Key Features
+
+- Historical groundwater-level analysis (1970–2025).
+- Pre-monsoon and post-monsoon groundwater assessment.
+- Groundwater depletion trends using Ordinary Least Squares (OLS) regression.
+- Seasonal water-table rise estimation.
+- Rainfall data integration and district matching.
+- Groundwater recharge estimation using the Water Table Fluctuation method.
+- Composite Water Stress Index calculation.
+- District-level water stress classification.
+- Historical groundwater trend visualization.
+- Monitoring-station geographical analysis.
+
+## Data Sources
+
+The project uses two primary datasets.
+
+| Dataset | Source | Description |
+|---|---|---|
+| Indian Groundwater Level Data (1970–2025) | Central Ground Water Board (CGWB) | Historical monitoring-station groundwater-depth observations |
+| District-wise Rainfall Normals | India Meteorological Department (IMD) | District-level annual and June–September rainfall normals |
+
+### Raw Data Files
+
+Place the original datasets inside `data/raw/`.
+
+```text
+data/
+└── raw/
+    ├── india_groundwater_level_data_cgwb_1970-2025.csv
+    └── district_wise_rainfall_normal.xlsx
+```
+
+## Technology Stack
+
+- **Programming Language:** Python
+- **Data Processing:** Pandas, NumPy
+- **Statistical Analysis:** Ordinary Least Squares (OLS)
+- **Data Visualization:** Matplotlib, Plotly
+- **Dashboard:** Streamlit
+- **Geographical Visualization:** Interactive mapping
+- **Data Storage:** CSV, Excel
+
+## Project Structure
+
+```text
+water-stress-assessment/
+│
+├── app.py
+│
+├── src/
+│   ├── build_data.py
+│   └── formulas.py
+│
+├── data/
+│   ├── raw/
+│   │   ├── india_groundwater_level_data_cgwb_1970-2025.csv
+│   │   └── district_wise_rainfall_normal.xlsx
+│   │
+│   └── processed/
+│       ├── district_metrics.csv
+│       ├── district_year.csv
+│       └── stations.csv
+│
+├── requirements.txt
+│
+└── README.md
+```
+
+## Data Processing Pipeline
+
+The preprocessing pipeline is implemented in `src/build_data.py`.
+
+It converts raw groundwater and rainfall datasets into standardized analytical datasets used by the application.
+
+### Processing Workflow
+
+1. Load groundwater observations from the CGWB dataset.
+2. Identify monthly groundwater measurement columns.
+3. Clean station metadata and remove invalid groundwater readings.
+4. Convert monthly observations from wide format to long format.
+5. Calculate annual pre-monsoon and post-monsoon groundwater depths.
+6. Estimate seasonal groundwater rise.
+7. Calculate station-level groundwater depletion trends.
+8. Calculate recent groundwater averages (2021–2025).
+9. Aggregate station measurements into district-level indicators using medians.
+10. Process IMD rainfall normals and standardize state and district names.
+11. Match groundwater districts with rainfall records using exact matching, fuzzy matching, and state-average fallback.
+12. Filter eligible districts and export processed datasets.
+
+### Run the Data Pipeline
+
+```bash
+python src/build_data.py
+```
+
+### Generated Datasets
+
+| Output File | Description |
+|---|---|
+| `district_metrics.csv` | District-level groundwater and rainfall indicators |
+| `district_year.csv` | Annual district-level pre-monsoon and post-monsoon groundwater measurements |
+| `stations.csv` | Monitoring-station groundwater measurements, trends, and geographical coordinates |
+
+## Hydrological Methodology
+
+The project uses multiple hydrological and statistical indicators to characterize groundwater conditions.
+
+### 1. Groundwater Depletion Rate
+
+The long-term groundwater depletion rate is estimated using Ordinary Least Squares (OLS) regression.
+
+\[
+D_r =
+\frac{n\sum xy-\sum x\sum y}
+{n\sum x^2-(\sum x)^2}
+\]
+
+Where:
+
+- \(D_r\) = Groundwater depletion rate (m/year).
+- \(n\) = Number of observations.
+- \(x\) = Year.
+- \(y\) = Pre-monsoon groundwater depth.
+
+**Interpretation:**
+
+- Positive slope: Groundwater table is becoming deeper.
+- Negative slope: Groundwater table is becoming shallower.
+- Zero slope: No estimated linear change.
+
+### 2. Seasonal Groundwater Rise
+
+Seasonal groundwater rise is estimated using the difference between pre-monsoon and post-monsoon groundwater depths.
+
+\[
+\Delta h = \max(D_{pre}-D_{post},0)
+\]
+
+Where:
+
+- \(D_{pre}\) = Pre-monsoon groundwater depth (m).
+- \(D_{post}\) = Post-monsoon groundwater depth (m).
+- \(\Delta h\) = Seasonal groundwater rise (m).
+
+### 3. Groundwater Recharge Estimation
+
+The Water Table Fluctuation (WTF) method is used to estimate gross recharge per unit area.
+
+\[
+R = S_y \times \Delta h \times 1000
+\]
+
+Where:
+
+- \(R\) = Estimated recharge (mm).
+- \(S_y\) = Specific yield (dimensionless).
+- \(\Delta h\) = Seasonal groundwater rise (m).
+
+This represents gross water-table-fluctuation recharge and does not account for groundwater extraction during the monsoon.
+
+### 4. Recharge Ratio
+
+The recharge ratio expresses estimated groundwater recharge as a percentage of annual rainfall.
+
+\[
+RR = \frac{R}{P}\times100
+\]
+
+Where:
+
+- \(RR\) = Recharge ratio (%).
+- \(R\) = Estimated groundwater recharge (mm).
+- \(P\) = Annual rainfall (mm).
+
+### 5. Monsoon Dependence
+
+The monsoon rainfall share measures the proportion of annual rainfall received during June–September.
+
+\[
+MS = \frac{P_{JJAS}}{P_{annual}}\times100
+\]
+
+Where:
+
+- \(P_{JJAS}\) = June–September rainfall (mm).
+- \(P_{annual}\) = Annual rainfall (mm).
+
+### 6. Future Groundwater Projection
+
+Groundwater depth is projected using a linear trend assumption.
+
+\[
+D(t)=D_{now}+D_r\times t
+\]
+
+Where:
+
+- \(D(t)\) = Projected groundwater depth.
+- \(D_{now}\) = Current groundwater depth.
+- \(D_r\) = Estimated annual depletion rate.
+- \(t\) = Number of years ahead.
+
+### 7. Estimated Time to Reach a Critical Depth
+
+\[
+T = \frac{D_{limit}-D_{now}}{D_r}
+\]
+
+This estimates the number of years required for groundwater depth to reach a specified critical threshold, assuming a positive and constant depletion rate.
+
+These projections are linear extrapolations, not deterministic forecasts.
+
+## Water Stress Index (WSI)
+
+The project develops a composite Water Stress Index to compare groundwater stress across eligible districts.
+
+Four indicators are incorporated:
+
+| Component | Indicator | Stress Interpretation |
+|---|---|---|
+| Groundwater Depth | Pre-monsoon depth | Greater depth indicates higher stress |
+| Depletion Trend | Annual groundwater depletion rate | Faster depletion indicates higher stress |
+| Rainfall | Annual rainfall | Lower rainfall indicates higher stress |
+| Recharge | Recharge ratio | Lower recharge ratio indicates higher stress |
+
+### Indicator Normalization
+
+Robust min-max normalization is used to transform indicators into a common 0–1 scale.
+
+\[
+Z = \frac{X-P_5}{P_{95}-P_5}
+\]
+
+Values are clipped to the interval:
+
+\[
+0 \leq Z \leq 1
+\]
+
+Where \(P_5\) and \(P_{95}\) represent the 5th and 95th percentiles.
+
+For rainfall and recharge, the normalized values are inverted because lower values represent higher stress.
+
+### Composite Index Calculation
+
+\[
+WSI = 100 \times
+\frac{\sum_{i=1}^{n} w_i C_i}
+{\sum_{i=1}^{n}w_i}
+\]
+
+Where:
+
+- \(WSI\) = Water Stress Index.
+- \(w_i\) = Weight assigned to each indicator.
+- \(C_i\) = Normalized stress component.
+
+The resulting index ranges from 0 to 100.
+
+### Water Stress Classification
+
+| WSI Score | Category |
+|---|---|
+| Below 35 | Low |
+| 35–49.99 | Moderate |
+| 50–64.99 | High |
+| 65–100 | Critical |
+
+The thresholds are configurable in the application and represent project-defined classification levels rather than universally established hydrological standards.
+
+## Installation and Setup
+
+### 1. Clone the Repository
+
+```bash
+git clone <YOUR_GITHUB_REPOSITORY_URL>
+cd water-stress-assessment
+```
+
+### 2. Create a Virtual Environment
+
+```bash
+python -m venv venv
+```
+
+Activate it on Windows:
+
+```bash
+venv\Scripts\activate
+```
+
+Activate it on Linux or macOS:
+
+```bash
+source venv/bin/activate
+```
+
+### 3. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+If a requirements file is not yet available, the main dependencies include:
+
+```bash
+pip install pandas numpy matplotlib plotly streamlit openpyxl
+```
+
+### 4. Add Raw Datasets
+
+Place the CGWB CSV and IMD Excel files inside:
+
+```text
+data/raw/
+```
+
+### 5. Generate Processed Datasets
+
+```bash
+python src/build_data.py
+```
+
+### 6. Launch the Application
+
+```bash
+streamlit run app.py
+```
+
+The application will be available at:
+
+```text
+http://localhost:8501
+```
+
+## Data Quality and Limitations
+
+The analysis incorporates several data-cleaning and validation measures:
+
+- Groundwater observations outside the accepted depth range are excluded.
+- Groundwater trend estimates require at least eight valid annual observations.
+- Extreme trend estimates outside the selected range are filtered.
+- District-level groundwater metrics are aggregated using medians.
+- Districts require at least three stations with recent pre-monsoon observations.
+- District names are standardized before rainfall matching.
+- Unmatched rainfall records may use state-level averages.
+
+### Research Limitations
+
+1. Groundwater monitoring stations may not be uniformly distributed across districts.
+2. District-level medians may not represent every local groundwater condition.
+3. Rainfall normals and recent groundwater measurements have different temporal reference periods.
+4. Fuzzy district matching requires geographical validation.
+5. State-average rainfall substitution can reduce district-level spatial accuracy.
+6. The linear groundwater projection assumes a constant depletion rate.
+7. The recharge estimation is a simplified WTF-based estimate and does not independently quantify all groundwater inflows, outflows, or monsoon abstraction.
+8. Specific-yield values and WSI component weights influence the final results and should be justified and tested.
+
+The Water Stress Index is intended as a comparative analytical indicator, not an official groundwater safety assessment or a replacement for detailed hydrogeological investigations.
+
+## Intended Applications
+
+- District-level groundwater stress assessment.
+- Identification of groundwater depletion hotspots.
+- Comparison of groundwater conditions across districts.
+- Historical groundwater trend analysis.
+- Rainfall and groundwater relationship exploration.
+- Preliminary support for regional water-resource planning.
+- Data-driven groundwater monitoring and visualization.
+
+## Future Improvements
+
+- Integration of additional groundwater datasets and monitoring periods.
+- Improved district matching using official administrative boundary data.
+- Spatial interpolation of groundwater observations.
+- Sensitivity analysis of WSI weights and classification thresholds.
+- Validation against independent groundwater assessments.
+- Improved groundwater projection models.
+- Integration of actual annual rainfall observations.
+- Assessment of groundwater extraction and recharge variability.
+
+## Disclaimer
+
+This project is developed for academic, analytical, and research purposes. The calculated indicators and composite Water Stress Index are model-based estimates derived from the available datasets and selected methodological assumptions.
+
+Results should not be interpreted as official government classifications, definitive groundwater forecasts, or site-specific hydrogeological assessments.
+
+## Acknowledgements
+
+Data sources:
+
+- Central Ground Water Board (CGWB), Government of India.
+- India Meteorological Department (IMD), Government of India.
+
+## License
+
+Specify the repository license before distributing or reusing the project. Ensure that the original CGWB and IMD datasets are used in accordance with their respective data-use terms.
