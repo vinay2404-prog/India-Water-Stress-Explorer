@@ -313,7 +313,59 @@ STAGE_OF_EXTRACTION = {
     "Puducherry": 50.0, "Andaman & Nicobar": 5.0, "Dadra & Nagar Haveli": 30.0,
     "Daman & Diu": 30.0, "Lakshadweep": 5.0,
 }
-dist["stage_extraction_pct"] = dist["state"].map(STAGE_OF_EXTRACTION)
+# 3c/3f. Stage of groundwater extraction: prefer district-level (CGWB 2025 report);
+# fall back to state-level STAGE_OF_EXTRACTION where district-level is missing.
+EXT_PATH = RAW / "district_extraction.csv"
+STAGE_OF_EXTRACTION = {
+    "Andhra Pradesh": 31.51, "Arunachal Pradesh": 0.41, "Assam": 10.0, "Bihar": 35.0,
+    "Chhattisgarh": 48.18, "Goa": 15.0, "Gujarat": 62.0, "Haryana": 136.75,
+    "Himachal Pradesh": 38.50, "Jharkhand": 32.89, "Jammu & Kashmir": 30.0,
+    "Karnataka": 66.49, "Kerala": 49.95, "Madhya Pradesh": 59.32, "Maharashtra": 51.79,
+    "Manipur": 9.09, "Meghalaya": 5.24, "Mizoram": 5.0, "Nagaland": 4.72,
+    "Odisha": 48.75, "Punjab": 145.0, "Rajasthan": 147.11, "Sikkim": 5.0,
+    "Tamil Nadu": 73.50, "Telangana": 46.69, "Tripura": 10.06, "Uttar Pradesh": 70.0,
+    "Uttarakhand": 45.0, "West Bengal": 45.19, "Delhi": 92.10, "Chandigarh": 67.0,
+    "Puducherry": 50.0, "Andaman & Nicobar": 5.0, "Dadra & Nagar Haveli": 30.0,
+    "Daman & Diu": 30.0, "Lakshadweep": 5.0,
+}
+if EXT_PATH.exists():
+    ext = pd.read_csv(EXT_PATH)
+    keep = ["state", "district", "stage_pct", "category_cgwb", "recharge_ham",
+            "extractable_ham", "extraction_ham", "extraction_irrigation_ham",
+            "extraction_industrial_ham", "extraction_domestic_ham",
+            "net_availability_ham"]
+    keep = [c for c in keep if c in ext.columns]
+    ext = ext[keep].copy()
+    ext = ext.drop_duplicates(subset=["state", "district"], keep="first")
+    dist = dist.merge(ext, on=["state", "district"], how="left", suffixes=("", "_cgwb"))
+    print("district extraction matched:", dist.stage_pct.notna().sum(), "of", len(dist))
+else:
+    dist["stage_pct"] = np.nan
+    dist["category_cgwb"] = None
+    print("NOTE: district_extraction.csv not found - stage of extraction will be state-level only.")
+
+dist["stage_pct"] = dist["stage_pct"].fillna(dist["state"].map(STAGE_OF_EXTRACTION))
+
+
+def _cgwb_cat(p):
+    if pd.isna(p):
+        return None
+    if p > 100:
+        return "Over-exploited"
+    if p >= 90:
+        return "Critical"
+    if p >= 70:
+        return "Semi-critical"
+    return "Safe"
+
+
+if "category_cgwb" not in dist.columns:
+    dist["category_cgwb"] = None
+mask = dist["category_cgwb"].isna() & dist["stage_pct"].notna()
+dist.loc[mask, "category_cgwb"] = dist.loc[mask, "stage_pct"].apply(_cgwb_cat)
+
+if "stage_extraction_pct" in dist.columns:
+    dist = dist.drop(columns=["stage_extraction_pct"])
 
 # 3d. Specific-yield hint by aquifer type (state-level heuristic, CGWB guidance).
 HARD_ROCK_STATES = {"Karnataka", "Tamil Nadu", "Maharashtra", "Madhya Pradesh",

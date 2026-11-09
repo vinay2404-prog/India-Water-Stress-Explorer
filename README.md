@@ -393,13 +393,24 @@ the last-page off-by-one, SSL fallback and polite delays.
 * **WTF Simplification:** The WTF recharge estimate uses seasonal water-table fluctuations and does not explicitly account for groundwater pumping, lateral flows, or other water-balance components during the monsoon.
 * **Relative Normalization:** Annual rainfall normalization and WSI scores represent relative conditions within the analyzed dataset, not absolute global thresholds.
 * **Rainfall Matching:** CGWB and IMD district names differ (old spellings, abbreviations). Verified name aliases are applied first, then fuzzy matching; unmatched districts (mostly post-2001 bifurcated districts without an IMD-normal counterpart) fall back to the **state average**, which is less precise (visible in the app's "Method & data" tab).
-* **Extraction data:** the CGWB 'stage of extraction' is shown at **state level only**; district-level extraction requires parsing CGWB's block-level PDF reports.
+* **Extraction data:** district-level from the CGWB 2025 National Compilation (473 of 482 districts); 9 districts fall back to state-level.
 * **Falkenmark indicator:** reported as a **rainfall-volume proxy** (not blue-water availability), using 2011 population.
 * **Specific yield:** a single slider is used; a per-state hint (hard rock vs alluvial) is shown but does not override the slider automatically.
 * **Weight Sensitivity:** WSI results depend on component weights and normalization reference parameters.
 * **Scope:** The model is intended for research and exploratory water-resource assessment, not as an operational regulatory tool.
 
-## 🔬 Research Applications
+## 📄 Parsing the CGWB extraction report (district-level stage of extraction)
+
+The bundled `data/raw/district_extraction.csv` was parsed from the CGWB **National Compilation
+on Dynamic Ground Water Resources of India (2025)** PDF. To regenerate it from a fresh report:
+
+    pip install pdfplumber
+    python scripts/parse_cgwb_extraction.py path/to/cgwb_report.pdf
+    python src/build_data.py
+
+The parser extracts the 16-column district tables, normalises district names via the alias
+map, and writes `data/raw/district_extraction.csv`. Districts that cannot be matched
+(renamed/new districts) fall back to the state-level stage of extraction.
 
 This model can support:
 

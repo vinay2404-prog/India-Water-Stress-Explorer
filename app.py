@@ -206,8 +206,10 @@ with tabs[2]:
     fk = r.get("falkenmark_m3_per_person", None)
     fclass = F.falkenmark_classify(pd.Series([fk])).iloc[0] if pd.notna(fk) else "n/a"
     m2[1].metric("Falkenmark", "n/a" if pd.isna(fk) else f"{fk:,.0f} m\u00b3/p/yr", fclass, delta_color="off")
-    se = r.get("stage_extraction_pct", None)
-    m2[2].metric("Stage of extraction (state)", "n/a" if pd.isna(se) else f"{se:.1f} %")
+    se = r.get("stage_pct", None)
+    cc = r.get("category_cgwb", None)
+    m2[2].metric("Stage of extraction (CGWB)", "n/a" if pd.isna(se) else f"{se:.1f} %",
+                 str(cc) if pd.notna(cc) else None, delta_color="off")
     syh = r.get("sy_hint", None)
     m2[3].metric("Aquifer type", str(r.get("aquifer_type", "n/a")),
                  f"suggested Sy \u2248 {syh:.2f}" if pd.notna(syh) else None, delta_color="off")
@@ -227,6 +229,15 @@ with tabs[2]:
         st.caption(f"SPI (Standardised Precipitation Index): SPI-3 = {s3:+.2f}, "
                    f"SPI-12 = {s12:+.2f}, 12-mo mean SPI-12 = {s12m:+.2f} "
                    f"(negative = drier than normal; data through 2020).")
+
+    ext_irr = r.get("extraction_irrigation_ham", None)
+    ext_ind = r.get("extraction_industrial_ham", None)
+    ext_dom = r.get("extraction_domestic_ham", None)
+    if pd.notna(ext_irr) or pd.notna(ext_dom):
+        st.caption(f"CGWB 2025 extraction (ham): irrigation = {0 if pd.isna(ext_irr) else ext_irr:,.0f}, "
+                   f"industrial = {0 if pd.isna(ext_ind) else ext_ind:,.0f}, "
+                   f"domestic = {0 if pd.isna(ext_dom) else ext_dom:,.0f}. "
+                   f"Category: {r.get('category_cgwb', 'n/a')}.")
 
     series = dy[(dy["state"] == state) & (dy["district"] == name)].sort_values("year")
     left, right = st.columns([3, 2])
@@ -316,7 +327,8 @@ with tabs[4]:
         "into a volume for the Falkenmark indicator.\n"
         "- **SPI (drought):** computed from district monthly rainfall (1969-2020) where available; SPI-3 and SPI-12 "
         "stored in `district_metrics.csv` and the full series in `district_spi.csv`.\n"
-        "- **Stage of extraction:** CGWB Dynamic Ground Water Resources assessment (state level, 2024-25).\n"
+        "- **Stage of extraction:** CGWB Dynamic Ground Water Resources assessment (district level, 2025 report, "
+        "parsed from the National Compilation PDF; 473 of 482 districts matched). State-level fallback where missing.\n"
         "- **Specific yield hint:** CGWB guidance (hard-rock \u2248 0.02-0.04 vs alluvial \u2248 0.10-0.16), by state; "
         "the slider still overrides it for the recharge calculation.")
     mt = dist_raw["rain_match"].value_counts().rename_axis("how rainfall was matched").reset_index(name="districts")
