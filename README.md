@@ -62,8 +62,8 @@ data/
 | ----- | ----- | ----- | 
 | **Language** | Python 3.10+ | Core implementation | 
 | **Data Processing** | Pandas, NumPy | Data manipulation and vectorized calculations | 
-| **Statistical Analysis** | OLS Regression, SciPy | Hydrological trend estimation and correlations | 
-| **Data Visualization** | Plotly, Matplotlib | Dynamic interactive charts and geographic maps | 
+| **Statistical Analysis** | OLS regression, correlation ranks | Hydrological trend estimation and correlations | 
+| **Data Visualization** | Plotly | Dynamic interactive charts and geographic maps | 
 | **Web Application** | Streamlit | Web interactive application interface | 
 
 ## 🌴 Project Structure
@@ -130,7 +130,7 @@ $$
 Where:
 
 * $D_r$: Groundwater depletion rate (m/year).
-* $x$: Observation year.
+* $x$: Observation year (the pipeline fits $x$ over the **2010–2025** window, requiring **at least 8 years** of pre-monsoon readings per station).
 * $y$: Groundwater depth (m).
 * $n$: Number of valid observations.
 
@@ -315,7 +315,7 @@ The resulting WSI is classified into four categories.
 3. **Install dependencies:**
 
    ```bash
-   pip install numpy pandas matplotlib plotly streamlit openpyxl scipy
+   pip install -r requirements.txt
    ```
 
 4. **Generate processed datasets:**
@@ -343,14 +343,16 @@ The resulting WSI is classified into four categories.
 | `projected_depth()` | Projects future groundwater depth | 
 | `minmax()` | Performs robust min-max normalization | 
 | `stress_components()` | Generates normalized stress components | 
-| `water_stress_index()` | Calculates composite WSI score | 
+| `water_stress_index()` | Calculates composite WSI score from a district table | 
+| `weighted_index()` | Aggregates pre-computed stress components into the WSI | 
 | `classify()` | Assigns water stress categories | 
 
 ## ⚠️ Scientific Considerations & Limitations
 
-* **Trend Assumptions:** Groundwater depletion rates are estimated using historical linear trends and do not represent guaranteed future behavior.
+* **Trend Assumptions:** Groundwater depletion rates are estimated using historical linear trends (2010–2025) and do not represent guaranteed future behavior.
 * **WTF Simplification:** The WTF recharge estimate uses seasonal water-table fluctuations and does not explicitly account for groundwater pumping, lateral flows, or other water-balance components during the monsoon.
 * **Relative Normalization:** Annual rainfall normalization and WSI scores represent relative conditions within the analyzed dataset, not absolute global thresholds.
+* **Rainfall Matching:** CGWB and IMD district names differ (old spellings, abbreviations). Verified name aliases are applied first, then fuzzy matching; unmatched districts (mostly post-2001 bifurcated districts without an IMD-normal counterpart) fall back to the **state average**, which is less precise (visible in the app's "Method & data" tab).
 * **Weight Sensitivity:** WSI results depend on component weights and normalization reference parameters.
 * **Scope:** The model is intended for research and exploratory water-resource assessment, not as an operational regulatory tool.
 

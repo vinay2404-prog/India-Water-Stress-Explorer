@@ -56,8 +56,9 @@ def years_to_reach(depth_now, rate, limit_depth):
     limit_depth = np.asarray(limit_depth, float)
     with np.errstate(divide="ignore", invalid="ignore"):
         t = (limit_depth - depth_now) / rate
-    t = np.where(rate > 0, t, np.nan)
-    return np.where(t < 0, 0.0, t)
+    # NaN when rate <= 0 (table not deepening), or when the water table is already
+    # at/below `limit_depth` (t <= 0): reporting "0 years" would be misleading.
+    return np.where((rate > 0) & (t > 0), t, np.nan)
 
 
 def projected_depth(depth_now, rate, years_ahead):
@@ -72,7 +73,9 @@ def minmax(s, lo_q=0.05, hi_q=0.95):
     s = pd.Series(s, dtype=float)
     lo, hi = s.quantile(lo_q), s.quantile(hi_q)
     if hi == lo:
-        return pd.Series(0.0, index=s.index)
+        # No usable spread (all values tied): return a neutral midpoint instead of
+        # silently biasing every district to "no stress" (0.0) or "max stress" (1.0).
+        return pd.Series(0.5, index=s.index)
     return ((s - lo) / (hi - lo)).clip(0, 1)
 
 
@@ -94,12 +97,22 @@ def stress_components(df):
     return c
 
 
-def water_stress_index(df, weights):
-    """WSI = 100 × Σ(wᵢ·cᵢ) / Σwᵢ      with cᵢ ∈ [0,1]"""
-    c = stress_components(df)
-    w = pd.Series(weights, dtype=float)
+def weighted_index(components, weights):
+    """WSI = 100 × Σ(wᵢ·cᵢ) / Σwᵢ      with cᵢ ∈ [0,1]
+    Takes a components table so callers that already computed `stress_components`
+    avoid computing it twice."""
+    c = pd.DataFrame(components, dtype=float)
+    w = pd.Series({k: weights[k] for k in c.columns if k in weights}, dtype=float)
+    if w.sum() == 0:
+        raise ValueError("At least one weight must be above zero.")
     w = w / w.sum()
     return 100 * sum(c[k] * w[k] for k in w.index)
+
+
+def water_stress_index(df, weights):
+    """WSI from a raw district table (convenience wrapper around
+    stress_components + weighted_index)."""
+    return weighted_index(stress_components(df), weights)
 
 
 CATEGORY_COLORS = {"Low": "#2a9d8f", "Moderate": "#e9c46a", "High": "#f4a261", "Critical": "#c1121f"}

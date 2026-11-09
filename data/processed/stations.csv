@@ -1261,7 +1261,7 @@ sid,stationName,state,district,latitude,longitude,well_depth_n,pre_depth,post_de
 2088,Puttur1,Karnataka,Dakshin Kannada,12.7667,75.2,14.5,11.715,9.5067,1.42,-0.07,12.835
 2089,Arkalgud,Karnataka,Hassan,12.7667,76.05,40.0,13.73,9.8,,0.2074,11.8829
 2092,Kawdley,Karnataka,Mandya,12.7667,76.9333,16.1,4.5,3.8,0.0,-0.0657,5.5386
-2093,Bidurmalai Koppalu,Karnataka,Hassan,12.7681,76.0389,9.0,3.25,1.56,1.07,-0.0062,
+2093,Bidurmalai Koppalu,Karnataka,Hassan,12.7681,76.0389,9.0,3.25,1.56,1.07,-0.0063,
 2095,Balya,Karnataka,Dakshin Kannada,12.7714,75.4231,9.0,6.555,3.3,2.555,,
 2096,Hethakondanahalli,Karnataka,Hassan,12.7719,76.1456,15.0,9.125,8.7,0.925,-0.3759,
 2098,Alankar,Karnataka,Dakshin Kannada,12.775,75.3556,12.05,4.35,,,,7.6883
@@ -1760,7 +1760,7 @@ sid,stationName,state,district,latitude,longitude,well_depth_n,pre_depth,post_de
 2680,Shivane,Karnataka,Chikkamagaluru,13.8167,76.0542,20.7,10.725,6.7567,2.675,-0.1112,11.85
 2681,Hiriyur,Karnataka,Shivamogga,13.8172,75.6675,10.11,1.935,1.75,0.035,0.024,
 2682,Nandanavana,Karnataka,Udupi,13.8197,74.6344,7.0,4.93,2.1367,3.2,0.0304,
-2684,Halkal,Karnataka,Udupi,13.8264,74.8019,11.8,9.91,7.37,1.73,0.1813,
+2684,Halkal,Karnataka,Udupi,13.8264,74.8019,11.8,9.91,7.37,1.73,0.1812,
 2685,Midigeshi,Karnataka,Tumkur,13.8292,77.2042,10.0,2.28,1.6,0.35,-0.0742,4.6614
 2686,Areshirur,Karnataka,Udupi,13.8319,74.7442,10.0,7.735,6.0333,1.91,-0.0897,
 2687,Shimoga,Karnataka,Shivamogga,13.8333,75.6,60.0,3.18,3.0867,0.005,0.1118,3.7857
@@ -2736,7 +2736,7 @@ sid,stationName,state,district,latitude,longitude,well_depth_n,pre_depth,post_de
 4233,Neendakara1,Kerala,Kollam,8.9278,76.6917,8.0,0.91,,,,
 4234,Oachira1,Kerala,Kollam,8.9278,76.6917,15.3,1.35,0.46,,0.027,
 4235,Anchal,Kerala,Kollam,8.9278,76.9167,41.2,8.57,5.38,,0.0879,8.5729
-4236,Nallila1,Kerala,Kollam,8.9281,76.6919,30.0,7.55,,,0.0167,7.7986
+4236,Nallila1,Kerala,Kollam,8.9281,76.6919,30.0,7.55,,,0.0168,7.7986
 4237,Bharathipuram,Kerala,Kollam,8.93,76.9853,13.5,9.995,7.05,,0.1164,
 4238,Yeroor,Kerala,Kollam,8.9322,76.9569,6.0,0.84,1.03,,-0.0106,2.2543
 4239,Yeroor1,Kerala,Kollam,8.9322,76.9653,61.0,5.62,1.38,,-0.2152,5.29
@@ -2795,7 +2795,7 @@ sid,stationName,state,district,latitude,longitude,well_depth_n,pre_depth,post_de
 4306,Palamoodu,Kerala,Kollam,9.09,76.8558,12.35,10.74,,,0.0909,
 4307,Vallikavu,Kerala,Kollam,9.0903,76.4958,3.8,1.24,,,-0.0608,1.5471
 4308,Pattanapuram,Kerala,Kollam,9.0917,76.8583,14.0,9.3,5.75,,0.2861,6.0633
-4309,Kadambanad,Kerala,Pathanamthitta,9.0925,76.6861,8.5,5.58,,,0.2413,
+4309,Kadambanad,Kerala,Pathanamthitta,9.0925,76.6861,8.5,5.58,,,0.2412,
 4310,Manappalli,Kerala,Kollam,9.0939,76.5661,30.0,13.5,5.23,,0.0227,16.9325
 4311,Sooranadu,Kerala,Kollam,9.1,76.6208,14.7,5.475,4.3,,-0.5115,11.125
 4312,Kunnada,Kerala,Kollam,9.1031,76.8061,13.8,11.855,6.44,,0.1282,10.992
@@ -2978,7 +2978,7 @@ sid,stationName,state,district,latitude,longitude,well_depth_n,pre_depth,post_de
 4535,Chotti,Kerala,Kottayam,9.5661,76.8472,6.8,3.705,2.4,,-0.088,
 4536,Kalavur,Kerala,Alappuzha,9.5667,76.3275,3.0,2.185,0.37,,0.0483,
 4537,Vandiperiyar,Kerala,Idukki,9.5667,77.1,10.2,6.075,5.44,,-0.0767,7.09
-4538,Kuttikal-R1,Kerala,Kottayam,9.5678,76.8825,4.73,2.525,2.25,,-0.0473,3.445
+4538,Kuttikal-R1,Kerala,Kottayam,9.5678,76.8825,4.73,2.525,2.25,,-0.0472,3.445
 4540,Vazhur,Kerala,Kottayam,9.5694,76.7231,6.9,2.855,,,,
 4542,Mananchery,Kerala,Alappuzha,9.5722,76.3472,4.13,2.575,1.4,,-0.0263,
 4544,Peerumedu,Kerala,Idukki,9.5739,76.9914,5.0,2.86,2.73,,-0.1108,
@@ -3045,7 +3045,7 @@ sid,stationName,state,district,latitude,longitude,well_depth_n,pre_depth,post_de
 4615,Kadaplamattom,Kerala,Kottayam,9.715,76.6092,8.37,5.175,4.79,,-0.046,
 4616,Vempalle,Kerala,Kottayam,9.7192,76.56,4.8,1.505,1.43,,,
 4617,Kalathur,Kerala,Kottayam,9.7206,76.5442,8.22,6.245,6.14,,,
-4618,Ethakuzhy ( Kallara),Kerala,Kottayam,9.7286,76.4769,5.4,3.175,1.63,,-0.0438,
+4618,Ethakuzhy ( Kallara),Kerala,Kottayam,9.7286,76.4769,5.4,3.175,1.63,,-0.0437,
 4619,Narianganam,Kerala,Kottayam,9.7297,76.7389,8.0,3.2,3.11,,,
 4620,Pattanakad,Kerala,Alappuzha,9.7333,76.2917,3.4,1.525,1.0,,0.0089,1.4271
 4621,Kattapana,Kerala,Idukki,9.7333,77.0875,4.9,2.985,1.72,,-0.0246,3.21
@@ -4260,7 +4260,7 @@ sid,stationName,state,district,latitude,longitude,well_depth_n,pre_depth,post_de
 6298,Bhonra,Madhya Pradesh,Betul,22.2778,77.8697,10.5,6.225,2.525,6.35,0.0004,7.9586
 6299,Dehari,Madhya Pradesh,Dhar,22.2881,74.9164,14.4,10.92,6.565,4.26,-0.0106,
 6300,Mangli,Madhya Pradesh,Mandla,22.2881,80.9986,5.78,3.25,1.84,,-0.0051,4.0667
-6301,Masangaon,Madhya Pradesh,Harda,22.2914,77.0031,14.02,10.51,4.045,6.83,0.2313,
+6301,Masangaon,Madhya Pradesh,Harda,22.2914,77.0031,14.02,10.51,4.045,6.83,0.2312,
 6302,Temagaon,Madhya Pradesh,Harda,22.2983,77.3206,27.0,14.51,13.67,17.06,-0.0094,14.9067
 6303,Aalirajpur(S),Madhya Pradesh,Alirajpur,22.2986,74.3536,60.97,7.11,4.265,,-0.1735,8.2933
 6304,Amarwara,Madhya Pradesh,Chhindwara,22.3014,79.1708,11.9,13.3,8.44,,0.1122,11.4833
@@ -4541,7 +4541,7 @@ sid,stationName,state,district,latitude,longitude,well_depth_n,pre_depth,post_de
 6661,Maindwa,Madhya Pradesh,Raisen,23.1219,77.5464,11.8,5.805,4.07,2.93,-0.3097,8.9733
 6662,Deori,Madhya Pradesh,Raisen,23.1236,78.6839,14.25,7.805,4.73,3.43,-0.0744,9.9886
 6663,Bhandeli,Madhya Pradesh,Sehore,23.1242,77.2608,15.5,9.225,6.3,4.1,,
-6664,Katangi1,Madhya Pradesh,Dindori,23.1261,80.6261,7.2,4.585,2.69,2.07,0.0177,4.41
+6664,Katangi1,Madhya Pradesh,Dindori,23.1261,80.6261,7.2,4.585,2.69,2.07,0.0178,4.41
 6666,Sultanpur,Madhya Pradesh,Raisen,23.1356,77.9319,7.0,3.935,3.49,0.0,-0.0449,4.4586
 6667,Shahpura,Madhya Pradesh,Jabalpur,23.1383,79.6653,15.5,6.66,3.595,4.58,-0.0544,8.7843
 6668,Rattagarhkhera,Madhya Pradesh,Ratlam,23.1394,75.2161,25.0,20.09,4.2,15.6,0.0972,15.8186
@@ -5103,7 +5103,7 @@ sid,stationName,state,district,latitude,longitude,well_depth_n,pre_depth,post_de
 7321,Kukreswar(D),Madhya Pradesh,Neemuch,24.4792,75.2708,101.0,9.2,5.81,6.42,-1.6982,26.1043
 7322,Gota pipliya,Madhya Pradesh,Neemuch,24.48,75.2233,27.5,10.76,8.75,2.4,-0.635,17.4883
 7324,Raipura,Madhya Pradesh,Chhatarpur,24.4814,79.7231,9.54,1.95,2.65,,-0.453,6.78
-7325,Kukreshwar Npz,Madhya Pradesh,Neemuch,24.4817,75.2617,50.0,7.18,2.2,5.65,-0.9362,
+7325,Kukreshwar Npz,Madhya Pradesh,Neemuch,24.4817,75.2617,50.0,7.18,2.2,5.65,-0.9363,
 7327,Patpara,Madhya Pradesh,Sidhi,24.485,81.8903,23.0,11.85,5.39,8.52,0.3979,
 7328,Kanawati Npz,Madhya Pradesh,Neemuch,24.4867,74.8567,50.0,6.6,3.415,2.9,-0.9647,
 7329,Jamalpura,Madhya Pradesh,Neemuch,24.4867,75.4642,16.0,10.105,5.93,2.72,-0.0984,11.6171
@@ -5332,7 +5332,7 @@ sid,stationName,state,district,latitude,longitude,well_depth_n,pre_depth,post_de
 7602,Gobardhan,Madhya Pradesh,Shivpuri,25.7897,77.5339,9.6,5.4,2.5,,0.0449,
 7605,Dongarpur,Madhya Pradesh,Gwalior,25.8219,77.9639,14.0,6.125,1.95,3.75,-0.7105,12.4183
 7606,Chhikau,Madhya Pradesh,Datia,25.825,78.5225,11.5,9.8,6.6,,,
-7607,Masoorpur New,Madhya Pradesh,Gwalior,25.8297,78.2444,9.3,5.45,2.235,3.28,0.1887,
+7607,Masoorpur New,Madhya Pradesh,Gwalior,25.8297,78.2444,9.3,5.45,2.235,3.28,0.1888,
 7609,Dhobni,Madhya Pradesh,Sheopur,25.8322,77.58,10.0,4.1,,,-0.4681,9.06
 7610,Bajna,Madhya Pradesh,Gwalior,25.8433,77.9519,10.5,4.875,3.4,1.7,0.0172,
 7611,Mohana(S),Madhya Pradesh,Gwalior,25.8856,77.7697,37.1,6.735,7.655,4.05,-0.2357,11.2043
@@ -5401,7 +5401,7 @@ sid,stationName,state,district,latitude,longitude,well_depth_n,pre_depth,post_de
 8074,Zarap,Maharashtra,Sindudurg,15.9333,73.75,8.69,4.545,1.3,2.54,-0.2094,6.3829
 8075,Danoli,Maharashtra,Sindudurg,15.9333,73.9333,5.45,2.075,1.9,0.0,-0.0304,2.6471
 8076,Naganwadi,Maharashtra,Kolhapur,15.9333,74.25,9.65,5.5,2.625,2.4,-0.1094,6.9314
-8078,Vardivarwade,Maharashtra,Sindudurg,15.9581,73.6853,18.4,13.35,10.85,2.7,0.2562,
+8078,Vardivarwade,Maharashtra,Sindudurg,15.9581,73.6853,18.4,13.35,10.85,2.7,0.2563,
 8079,Amboli-1,Maharashtra,Sindudurg,15.9625,74.0017,6.5,4.4,1.2,2.8,-0.0243,
 8080,Kanur Khurd,Maharashtra,Kolhapur,15.9653,74.1108,6.8,3.915,4.375,0.28,,
 8081,Mangaon Bazar,Maharashtra,Sindudurg,15.9772,73.7856,7.8,5.15,1.25,3.7,-0.1234,5.8186
@@ -8154,7 +8154,7 @@ sid,stationName,state,district,latitude,longitude,well_depth_n,pre_depth,post_de
 12683,Gandugulapalli-PZ 3,Telangana,Khammam,17.3042,80.9208,45.0,23.45,15.63,,,
 12684,Eduula Bayyaram,Telangana,Khammam,17.3042,80.9667,6.28,1.86,1.83,0.0,-0.0863,2.6314
 12685,Kanaka Mamidi-DW13,Telangana,Ranga Reddy,17.305,78.2472,17.0,3.71,1.445,1.41,-1.0807,
-12686,Chevella-PZ,Telangana,Ranga Reddy,17.3056,78.1394,40.1,15.9,4.655,10.37,-0.0138,16.1667
+12686,Chevella-PZ,Telangana,Ranga Reddy,17.3056,78.1394,40.1,15.9,4.655,10.37,-0.0137,16.1667
 12687,Chevella,Telangana,Ranga Reddy,17.3089,78.1397,17.8,16.08,,,,15.7886
 12688,Kerelli-DW13,Telangana,Ranga Reddy,17.3114,77.8292,15.0,7.4,4.33,1.96,-0.3247,
 12689,Guvvagudemdw15,Telangana,Khammam,17.3117,80.065,12.5,7.58,2.755,5.77,,
@@ -9569,7 +9569,7 @@ sid,stationName,state,district,latitude,longitude,well_depth_n,pre_depth,post_de
 15395,Mandapakala-DW14,Andhra Pradesh,Krishna,15.9764,80.9978,5.47,2.87,1.56,1.47,,
 15398,Pallapatla,Andhra Pradesh,Guntur,15.9833,80.7667,4.32,3.21,,,,2.3233
 15399,Mannevaripalem-Dw,Andhra Pradesh,Guntur,15.99,80.61,9.78,1.9,0.355,1.41,,
-15400,Inovolu,Andhra Pradesh,Guntur,15.9931,79.6706,10.02,2.55,1.405,1.03,0.0063,
+15400,Inovolu,Andhra Pradesh,Guntur,15.9931,79.6706,10.02,2.55,1.405,1.03,0.0062,
 15401,Chikatigalapalem 2010Pz,Andhra Pradesh,Guntur,16.0042,79.6931,38.1,2.86,2.75,0.19,0.0266,
 15403,Gonoguntlavaripalem DW13,Andhra Pradesh,Guntur,16.0083,79.6958,7.4,3.31,1.72,1.75,,
 15404,Guttalaumadivrm,Andhra Pradesh,Prakasam,16.0125,79.5625,9.3,5.91,1.26,,0.089,6.2814
@@ -10078,7 +10078,7 @@ sid,stationName,state,district,latitude,longitude,well_depth_n,pre_depth,post_de
 16732,Pharasgaon,Chhattisgarh,Bastar,19.8583,81.6375,9.9,6.065,3.18,2.97,0.1217,5.1683
 16734,Mundagaon,Chhattisgarh,Raipur,19.9278,82.625,8.7,4.55,1.03,,,5.775
 16739,Batrail,Chhattisgarh,Bastar,20.0542,81.5722,9.07,6.82,2.77,3.98,,
-16742,Keskal,Chhattisgarh,Bastar,20.0889,81.5944,9.0,9.185,3.975,6.05,0.1337,7.2067
+16742,Keskal,Chhattisgarh,Bastar,20.0889,81.5944,9.0,9.185,3.975,6.05,0.1338,7.2067
 16744,Murwand,Chhattisgarh,Bastar,20.1208,81.5333,8.12,3.89,,,,
 16746,Kulgaon,Chhattisgarh,Kanker,20.175,81.5069,9.9,3.92,2.1,,-0.4495,8.3333
 16751,Arsi-kanhar,Chhattisgarh,Dhamtari,20.2458,82.0792,12.0,11.75,9.225,2.55,0.0294,9.14
@@ -11458,7 +11458,7 @@ sid,stationName,state,district,latitude,longitude,well_depth_n,pre_depth,post_de
 18901,Bangalaguda,Odisha,Koraput,19.2011,82.5594,11.6,5.9767,3.7267,1.625,-0.1743,
 18902,Golanthara,Odisha,Ganjam,19.2042,84.7525,8.56,3.22,1.5625,1.34,-0.1626,5.9471
 18903,Bangi Chowk,Odisha,Rayagada,19.2058,83.7089,7.5,4.7633,2.1,2.76,-0.0583,
-18904,Nua Dakasikula,Odisha,Rayagada,19.2072,83.8383,5.9,2.99,1.025,1.73,0.0463,
+18904,Nua Dakasikula,Odisha,Rayagada,19.2072,83.8383,5.9,2.99,1.025,1.73,0.0462,
 18906,Daibata,Odisha,Nabarangapur,19.2122,82.5642,10.9,7.92,5.66,3.33,-0.0393,
 18908,Gumda,Odisha,Rayagada,19.22,83.7717,9.5,6.1333,4.565,1.58,0.0829,7.5771
 18909,Chakunda,Odisha,Rayagada,19.2214,83.6931,7.9,5.0233,3.405,1.23,,
@@ -11738,7 +11738,7 @@ sid,stationName,state,district,latitude,longitude,well_depth_n,pre_depth,post_de
 19265,Padanpur,Odisha,Khordha,20.1728,85.6756,10.05,5.55,3.63,1.73,0.0029,
 19266,Gayagonda 1,Odisha,Ganjam,20.1742,84.7508,8.1,6.29,4.555,2.28,,
 19267,Khurda Industrial Area,Odisha,Khordha,20.1756,85.6383,13.5,9.775,6.43,2.405,0.0952,
-19269,Sandhapur,Odisha,Khordha,20.1806,85.7014,9.2,5.885,5.44,0.435,-0.1662,
+19269,Sandhapur,Odisha,Khordha,20.1806,85.7014,9.2,5.885,5.44,0.435,-0.1663,
 19270,Khurda,Odisha,Khordha,20.1819,85.6175,14.32,7.055,5.7367,1.095,-0.2384,
 19275,M-rampur,Odisha,Kalahandi,20.1972,83.525,8.12,5.5433,4.16,1.18,0.0146,5.19
 19276,Baliguda,Odisha,Kandhamal,20.1992,83.9083,13.0,10.075,4.9475,6.085,,10.8417
@@ -11804,7 +11804,7 @@ sid,stationName,state,district,latitude,longitude,well_depth_n,pre_depth,post_de
 19354,Titisilet,Odisha,Balangir,20.3003,82.925,8.8,5.7167,3.2567,2.79,-0.1149,
 19355,B-25 Sainik School,Odisha,Khordha,20.3008,85.8308,10.22,5.905,5.1525,0.985,-0.1059,
 19356,Brahmana Jhharilo,Odisha,Cuttack,20.3019,85.9289,6.15,4.7,,,,
-19358,Chormara,Odisha,Balangir,20.3047,83.2917,7.6,3.25,2.4167,0.85,0.0537,
+19358,Chormara,Odisha,Balangir,20.3047,83.2917,7.6,3.25,2.4167,0.85,0.0538,
 19360,Madanpur1,Odisha,Kalahandi,20.3078,83.5325,9.7,7.235,5.065,1.91,-0.0472,
 19361,Madanpur,Odisha,Kalahandi,20.3083,83.5333,9.5,6.79,,,,6.7486
 19363,Belgaon,Odisha,Balangir,20.3139,83.3167,9.1,3.85,2.9,,-0.1762,6.2086
@@ -11905,7 +11905,7 @@ sid,stationName,state,district,latitude,longitude,well_depth_n,pre_depth,post_de
 19483,Tusura,Odisha,Balangir,20.4906,83.4758,7.5,4.7833,1.3767,4.41,,6.7025
 19484,C-06 Bidanasi,Odisha,Cuttack,20.4908,85.8389,8.35,2.175,1.385,0.28,-0.0403,
 19485,Kurli,Odisha,Balangir,20.4917,82.92,7.75,4.8667,3.76,1.21,-0.1067,
-19487,Dalbi,Odisha,Kendrapara,20.4942,86.3144,6.4,3.155,1.06,1.21,-0.0112,
+19487,Dalbi,Odisha,Kendrapara,20.4942,86.3144,6.4,3.155,1.06,1.21,-0.0113,
 19489,Nimpur,Odisha,Cuttack,20.4958,85.9144,8.05,4.02,2.905,1.56,-0.0505,
 19491,C-26 Jagatpur-2,Odisha,Cuttack,20.4978,85.9228,5.9,3.925,2.555,1.05,-0.0123,
 19492,Anantapur,Odisha,Cuttack,20.4978,85.9733,7.1,3.525,1.8,1.17,0.1207,
@@ -13922,7 +13922,7 @@ sid,stationName,state,district,latitude,longitude,well_depth_n,pre_depth,post_de
 22993,Chand Chowra Chowk,Bihar,Gaya,24.7689,85.0008,8.45,6.44,5.465,1.03,,
 22994,Sangat Gali,Bihar,Gaya,24.7825,84.9997,11.4,5.73,5.65,,-0.2799,
 22995,Narari Kala,Bihar,Aurangabad,24.7875,84.1494,11.52,11.05,7.5,0.0,,
-22997,Ambedkar Nagar,Bihar,Jamui,24.7944,86.3603,16.8,5.59,1.87,3.35,-0.3387,
+22997,Ambedkar Nagar,Bihar,Jamui,24.7944,86.3603,16.8,5.59,1.87,3.35,-0.3388,
 22999,Guraru,Bihar,Gaya,24.8017,84.7836,7.22,6.16,3.085,0.62,,
 23000,Tilothu bustand,Bihar,Rohtas,24.8042,84.1083,9.0,8.4,,,0.0249,6.836
 23001,Wazirganj,Bihar,Gaya,24.8042,85.2208,9.8,5.47,1.59,0.72,0.0027,5.4283

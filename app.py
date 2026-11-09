@@ -37,11 +37,12 @@ def compute(df, sy, weights, cuts):
     df = df.copy()
     df["recharge_mm"] = F.recharge_wtf(sy, df["rise_m"])                          # R = Sy x dh x 1000
     df["recharge_ratio"] = F.recharge_ratio(df["recharge_mm"], df["rain_annual"])  # R / P x 100
-    df["monsoon_share"] = F.monsoon_share(df["rain_jjas"], df["rain_annual"])
+    if "monsoon_share" not in df.columns:   # older processed files pre-built without it
+        df["monsoon_share"] = F.monsoon_share(df["rain_jjas"], df["rain_annual"])
     comps = F.stress_components(df)
     for k in comps:
         df["c_" + k] = comps[k]
-    df["wsi"] = F.water_stress_index(df, weights)
+    df["wsi"] = F.weighted_index(comps, weights)   # reuse comps (computed once)
     df["category"] = F.classify(df["wsi"], cuts)
     df["depth_change"] = df["pre_depth"] - df["pre_2005_11"]
     yrs = F.years_to_reach(df["pre_depth"], df["trend"], df["well_depth"])
@@ -69,6 +70,9 @@ with st.sidebar.expander("Category cut-offs"):
     c1 = st.slider("Moderate from", 0, 100, 35)
     c2 = st.slider("High from", 0, 100, 50)
     c3 = st.slider("Critical from", 0, 100, 65)
+if not (c1 <= c2 <= c3):
+    st.sidebar.error("Cut-offs must be ordered: Moderate ≤ High ≤ Critical.")
+    st.stop()
 st.sidebar.subheader("Filters")
 all_states = sorted(dist_raw["state"].unique())
 sel_states = st.sidebar.multiselect("States", all_states, default=all_states)
@@ -106,18 +110,18 @@ with tabs[0]:
         fig.update_geos(scope="asia", lonaxis_range=[67, 98], lataxis_range=[6, 37], showcountries=True,
                         showland=True, landcolor="#f3f1ea", countrycolor="#999")
         fig.update_layout(height=560, margin=dict(l=0, r=0, t=10, b=0))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
     with right:
         cnt = (df["category"].value_counts().reindex(F.CATEGORY_ORDER).fillna(0).rename_axis("category")
                .reset_index(name="districts"))
         fig = px.bar(cnt, x="category", y="districts", color="category", color_discrete_map=F.CATEGORY_COLORS,
                      text="districts")
         fig.update_layout(showlegend=False, height=270, margin=dict(l=0, r=0, t=10, b=0))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
         fig = px.histogram(df, x="trend", nbins=40, labels={"trend": "Depletion rate (m/yr)"})
         fig.add_vline(x=0, line_dash="dash")
         fig.update_layout(height=270, margin=dict(l=0, r=0, t=10, b=0))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
         st.caption("Right of the dashed line = water table getting deeper; left = recovering.")
 
 # ------------------------------------------------------------------ 2 rankings
@@ -128,7 +132,7 @@ with tabs[1]:
                  orientation="h", hover_data=["state", "pre_depth", "trend", "rain_annual", "recharge_ratio"],
                  labels={"wsi": "Water Stress Index", "district": ""})
     fig.update_layout(height=max(400, 22 * n), margin=dict(l=0, r=0, t=10, b=0))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
     st.subheader("State summary")
     ss = (df.groupby("state").agg(districts=("district", "size"), mean_wsi=("wsi", "mean"),
@@ -138,9 +142,9 @@ with tabs[1]:
     fig = px.bar(ss, x="state", y="mean_wsi", color="mean_wsi", color_continuous_scale="RdYlGn_r",
                  range_color=(0, 100), labels={"mean_wsi": "Mean index", "state": ""})
     fig.update_layout(height=380, margin=dict(l=0, r=0, t=10, b=0), coloraxis_showscale=False)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
     st.caption("States with fewer than 3 analysed districts are omitted.")
-    st.dataframe(ss.round(2), use_container_width=True, hide_index=True)
+    st.dataframe(ss.round(2), width='stretch', hide_index=True)
 
 # ------------------------------------------------------------------ 3 district explorer
 with tabs[2]:
@@ -174,7 +178,7 @@ with tabs[2]:
                                      line=dict(dash="dash", color="#c1121f")))
         fig.update_yaxes(autorange="reversed", title="Depth to water (m)")
         fig.update_layout(height=420, margin=dict(l=0, r=0, t=10, b=0), legend=dict(orientation="h"))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
         st.caption("Y-axis reversed: lines going down = water table getting deeper.")
     with right:
         wn = pd.Series(w) / sum(w.values())
@@ -183,7 +187,7 @@ with tabs[2]:
         fig = px.bar(contrib, x="points", y="component", orientation="h",
                      labels={"points": "Points of the index", "component": ""})
         fig.update_layout(height=260, margin=dict(l=0, r=0, t=10, b=0))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
     st.subheader("The formulas, with this district's numbers")
     d_now = float(r.pre_depth)
@@ -193,7 +197,9 @@ with tabs[2]:
     if pd.notna(r.years_to_well_depth) and pd.notna(r.well_depth):
         st.latex(rf"t = (D_\mathrm{{well}} - D_0)/\text{{rate}} = ({r.well_depth:.0f} - {d_now:.1f}) / {r.trend:.2f} = {r.years_to_well_depth:.0f}\ \text{{years}}")
     else:
-        st.info("Depth is not increasing here, so there is no years-to-depletion estimate.")
+        st.info("No years-to-depletion estimate here: the water table is not getting deeper "
+                "(rate \u2264 0), it is already deeper than the well depth, or the projection "
+                "exceeds 200 years.")
     st.caption(f"Rainfall matched by: {r.rain_match}. Monsoon (Jun-Sep) share of rainfall: {r.monsoon_share:.0f}%.")
 
 # ------------------------------------------------------------------ 4 rainfall vs groundwater
@@ -211,9 +217,13 @@ with tabs[3]:
         xs = np.linspace(sub["rain_annual"].min(), sub["rain_annual"].max(), 50)
         fig.add_trace(go.Scatter(x=xs, y=a + b * xs, mode="lines", name="Linear fit", line=dict(color="black", dash="dash")))
     fig.update_layout(height=520, margin=dict(l=0, r=0, t=10, b=0))
-    st.plotly_chart(fig, use_container_width=True)
-    rho = sub["rain_annual"].rank().corr(sub[ycol].rank())
-    st.metric("Spearman rank correlation with rainfall", f"{rho:+.2f}")
+    st.plotly_chart(fig, width='stretch')
+    rho = np.nan
+    valid = sub.dropna(subset=["rain_annual", ycol])
+    if len(valid) >= 3:   # correlation is meaningless below 3 points
+        rho = valid["rain_annual"].rank().corr(valid[ycol].rank())
+    st.metric("Spearman rank correlation with rainfall",
+              "n/a (too few districts)" if pd.isna(rho) else f"{rho:+.2f}")
     st.caption("Spearman rho = Pearson correlation of the ranks, so it is not distorted by outliers. "
                "Weak correlations mean rainfall alone does not explain groundwater stress - "
                "extraction for irrigation matters a great deal.")

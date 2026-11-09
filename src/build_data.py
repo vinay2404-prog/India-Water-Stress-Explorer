@@ -17,6 +17,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+import formulas as F
+
 ROOT = Path(__file__).resolve().parents[1]
 RAW, OUT = ROOT / "data/raw", ROOT / "data/processed"
 OUT.mkdir(parents=True, exist_ok=True)
@@ -25,9 +27,13 @@ TREND_FROM = 2010
 MIN_TREND_YEARS = 8
 MAX_DEPTH = 100
 
+MONTH_PAT = re.compile(r"^(19|20)\d{2}-(0[1-9]|1[0-2])$")  # strict "YYYY-MM" columns
+
 # ------------------------------------------------------------------ 1. groundwater
 gw = pd.read_csv(RAW / "india_groundwater_level_data_cgwb_1970-2025.csv", low_memory=False)
-month_cols = [c for c in gw.columns if c[:2] in ("19", "20")]
+month_cols = [c for c in gw.columns if MONTH_PAT.match(str(c))]
+if not month_cols:
+    raise ValueError("No YYYY-MM month columns found in the groundwater CSV - schema changed?")
 gw = gw.copy()
 gw["sid"] = np.arange(len(gw))
 gw["state"] = gw["state"].astype(str).str.strip()
@@ -47,16 +53,16 @@ def season(mask, name):
 
 
 sy = pd.concat([season(long.mo.isin([4, 5]), "pre"), season(long.mo == 11, "post")], axis=1).reset_index()
-sy["rise"] = np.maximum(sy.pre - sy.post, 0)
+sy["rise"] = F.seasonal_rise(sy.pre, sy.post)
 sy = sy.merge(gw[["sid", "state", "district", "latitude", "longitude", "well_depth_n"]], on="sid")
 
 # ---- station level: OLS depletion rate 2010-2025 + recent means
+# (single OLS implementation: formulas.depletion_rate, same as the app uses)
 t = sy[(sy.year >= TREND_FROM) & sy.pre.notna()].copy()
-t["x"] = t.year.astype(float)
-t["xy"] = t.x * t.pre
-t["xx"] = t.x ** 2
-g = t.groupby("sid").agg(n=("x", "size"), sx=("x", "sum"), sy=("pre", "sum"), sxy=("xy", "sum"), sxx=("xx", "sum"))
-g["slope"] = (g.n * g.sxy - g.sx * g.sy) / (g.n * g.sxx - g.sx ** 2)
+slope = t.groupby("sid")[["year", "pre"]].apply(
+    lambda g: F.depletion_rate(g["year"], g["pre"])).rename("slope")
+n = t.groupby("sid").pre.size().rename("n")
+g = pd.concat([slope, n], axis=1)
 g = g[(g.n >= MIN_TREND_YEARS) & g.slope.between(-5, 5)]
 rec = sy[sy.year.between(*RECENT)].groupby("sid").agg(pre=("pre", "mean"), post=("post", "mean"), rise=("rise", "mean"))
 st = gw.set_index("sid")[["stationName", "state", "district", "latitude", "longitude", "well_depth_n"]].join(rec).join(g[["slope"]])
@@ -89,11 +95,43 @@ def norm(s):
 
 r["key"] = r.DISTRICT.map(norm)
 
+# CGWB district names vs IMD normals use different (old/abbreviated) spellings.
+# These verified aliases turn known pairs into EXACT matches instead of relying on
+# fuzzy matching, which once paired S.B.S. Nagar with the rainfall of SAS NAGAR
+# (Mohali) - a different district. Checked against every fuzzy match found earlier.
+DISTRICT_ALIASES = {
+    "Cuddapah": "KUDDAPAH", "Jehanabad": "JAHANABAD", "Purnia": "PURNEA",
+    "Janjgir - Champa": "JANJGIR-CHAMP", "Dang": "DANGS", "Sonipat": "SONEPAT(RTK)",
+    "Rajauri": "RAJOURI", "Kodarma": "KODERMA", "Palamau": "PALAMU",
+    "Bangalore Rural": "BANGALORE RUR", "Bangalore Urban": "BANGALORE URB",
+    "Belgaum": "BELGAM", "Chamarajanagara": "CHAMARAJANAGA",
+    "Chikkamagaluru": "CHIKMAGALUR", "Dakshin Kannada": "DAKSHIN KANDA",
+    "Davanagere": "DAVANGERE", "Shivamogga": "SHIMOGA", "Uttara Kannada": "UTTAR KANNADA",
+    "Kannur": "CANNUR", "Kasaragod": "KASARGOD", "Buldana": "BULDHANA",
+    "Sindudurg": "SINDHUDURG", "Anugul": "ANGUL", "Balangir": "BOLANGIR",
+    "Jagatsinghapur": "JAGATSINGHAPU", "Jajapur": "JAJPUR",
+    "Nabarangapur": "NAWARANGPUR", "Sonapur": "SONEPUR", "Mukatsar": "MUKTSAR",
+    "Sbs Nagar": "NAWANSHAHR", "Kancheepuram": "KANCHIPURAM",
+    "Ramanathapuram": "RAMANATHAPURA", "Tiruchirappalli": "TIRUCHIRAPPAL",
+    "Tiruppur": "TIRUPUR", "Tiruvannamalai": "TIRUVANNAMALA",
+    "Mahbubnagar": "MAHABUBNAGAR", "Budaun": "BADAUN",
+    "Jyotiba Phule Nagar": "JYOTIBA PHULE", "Raibareli": "RAE BARELI",
+    "Sant Kabir Nagar": "SANT KABIR NGR", "Siddharthnagar": "SIDDHARTH NGR",
+    "Udham Singh Nagar": "UDHAM SINGH N", "Darjiling": "DARJEELING",
+    "Maldah": "MALDA", "Puruliya": "PURULIA", "Fatehgarh Sahib": "FATEHGARH SAH",
+    "Ashok Nagar": "ASHOKNAGAR(GNA", "Pratapgarh": "PRATAPGARH(CHT",
+}
+
 
 def match(row):
     st_ = "Andhra Pradesh" if row.state == "Telangana" else row.state  # Telangana was part of AP in the normals
     cand = r[r.state == st_]
     k = norm(row.district)
+    alias = DISTRICT_ALIASES.get(row.district)
+    if alias:
+        ex = cand[cand.key == norm(alias)]
+        if len(ex):
+            return ex.iloc[0].ANNUAL, ex.iloc[0]["Jun-Sep"], "district name"
     ex = cand[cand.key == k]
     if len(ex):
         return ex.iloc[0].ANNUAL, ex.iloc[0]["Jun-Sep"], "district name"
@@ -109,6 +147,7 @@ def match(row):
 res = dist.apply(match, axis=1, result_type="expand")
 res.columns = ["rain_annual", "rain_jjas", "rain_match"]
 dist = pd.concat([dist, res], axis=1)
+dist["monsoon_share"] = F.monsoon_share(dist.rain_jjas, dist.rain_annual)
 print("rainfall match:\n", dist.rain_match.value_counts().to_string())
 
 dist = dist[dist.stations >= 3].dropna(subset=["pre_depth", "trend", "rain_annual", "rise_m"]).reset_index(drop=True)
