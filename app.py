@@ -338,6 +338,15 @@ with tabs[4]:
                        "matched": [int(dist_raw["geo_id"].notna().sum()), int(dist_raw["population"].notna().sum())],
                        "of": [len(dist_raw), len(dist_raw)]})
     st.dataframe(gm, hide_index=True)
+    st.subheader("Reservoirs feeding thermal power plants")
+    rp_path = ROOT / "data/raw/reservoir_power_linkage.csv"
+    if rp_path.exists():
+        rp = pd.read_csv(rp_path)
+        st.dataframe(rp, width='stretch', hide_index=True)
+        st.caption("Source: NITI Aayog ICED. Shows which reservoirs supply water to thermal power plants "
+                   "(power-sector water dependency). Live reservoir storage (CWC) is not included here.")
+    else:
+        st.info("No reservoir linkage data found.")
     st.header("Limitations")
     st.markdown(
         "- The index is **relative** (districts ranked against each other), not an absolute scarcity measure.\n"

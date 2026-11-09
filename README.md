@@ -393,7 +393,7 @@ the last-page off-by-one, SSL fallback and polite delays.
 * **WTF Simplification:** The WTF recharge estimate uses seasonal water-table fluctuations and does not explicitly account for groundwater pumping, lateral flows, or other water-balance components during the monsoon.
 * **Relative Normalization:** Annual rainfall normalization and WSI scores represent relative conditions within the analyzed dataset, not absolute global thresholds.
 * **Rainfall Matching:** CGWB and IMD district names differ (old spellings, abbreviations). Verified name aliases are applied first, then fuzzy matching; unmatched districts (mostly post-2001 bifurcated districts without an IMD-normal counterpart) fall back to the **state average**, which is less precise (visible in the app's "Method & data" tab).
-* **Extraction data:** district-level from the CGWB 2025 National Compilation (473 of 482 districts); 9 districts fall back to state-level.
+* **Reservoir data:** the bundled `reservoir_power_linkage.csv` is a reservoir-to-thermal-power-plant mapping (NITI Aayog ICED), not live storage. True reservoir stress needs CWC live-storage time series.
 * **Falkenmark indicator:** reported as a **rainfall-volume proxy** (not blue-water availability), using 2011 population.
 * **Specific yield:** a single slider is used; a per-state hint (hard rock vs alluvial) is shown but does not override the slider automatically.
 * **Weight Sensitivity:** WSI results depend on component weights and normalization reference parameters.
