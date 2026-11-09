@@ -1,0 +1,39 @@
+{
+  "_comment": "Curated data.gov.in resource IDs used to source the project's raw data.",
+  "_how_to_find_ids": "Log in at https://data.gov.in, open a dataset page, click 'API' and copy the resource UUID from the URL (https://api.data.gov.in/resource/<UUID>). Or run: python scripts/fetch_datagovin.py --search <keyword>.",
+  "_api_key": "Set DATAGOVIN_API_KEY env var or put your key in config/api_key.txt (free registration at data.gov.in).",
+  "datasets": [
+    {
+      "name": "district_rainfall_monthly",
+      "resource_id": "REPLACE_WITH_RESOURCE_ID",
+      "description": "District-wise monthly rainfall (IMD) - activates SPI in the pipeline.",
+      "filters": {},
+      "output": "data/raw/district_rainfall_monthly.csv",
+      "required_columns": ["state", "district", "year", "month", "rainfall_mm"]
+    },
+    {
+      "name": "cgwb_groundwater_levels",
+      "resource_id": "REPLACE_WITH_RESOURCE_ID",
+      "description": "CGWB groundwater level observations by station (replaces the bundled CSV).",
+      "filters": {},
+      "output": "data/raw/india_groundwater_level_data_cgwb_1970-2025.csv",
+      "required_columns": ["state", "district", "latitude", "longitude"]
+    },
+    {
+      "name": "census_2011_population",
+      "resource_id": "REPLACE_WITH_RESOURCE_ID",
+      "description": "Census 2011 district population (replaces the bundled census CSV).",
+      "filters": {},
+      "output": "data/raw/india_census_2011.csv",
+      "required_columns": ["State name", "District name", "Population"]
+    },
+    {
+      "name": "dynamic_groundwater_resources",
+      "resource_id": "REPLACE_WITH_RESOURCE_ID",
+      "description": "CGWB dynamic groundwater resources - district-level extraction/recharge/stage of extraction.",
+      "filters": {},
+      "output": "data/raw/district_extraction.csv",
+      "required_columns": ["state", "district", "extraction_bcm", "recharge_bcm", "stage_pct"]
+    }
+  ]
+}

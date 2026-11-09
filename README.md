@@ -330,6 +330,46 @@ The resulting WSI is classified into four categories.
    streamlit run app.py
    ```
 
+## Sourcing data exclusively from data.gov.in
+
+This project can be built so that **every raw dataset comes from India's Open Government
+Data platform (data.gov.in)** instead of the bundled files.
+
+### 1. Get a free API key
+1. Register at https://data.gov.in/ (Google or government email).
+2. Go to **My Account -> API Key** and copy your key.
+3. Save it (one of):
+   - `export DATAGOVIN_API_KEY=your_key` (Linux/macOS), or
+   - `set DATAGOVIN_API_KEY=your_key` (Windows), or
+   - create `config/api_key.txt` containing the key.
+
+### 2. Find resource IDs
+Each data.gov.in dataset has a resource UUID. Find them via the portal search, or with
+the helper:
+
+    python scripts/fetch_datagovin.py --search "ground water level"
+
+Then paste the UUIDs into `config/datagovin_resources.json` (replace the
+`REPLACE_WITH_RESOURCE_ID` placeholders) and verify columns with:
+
+    python scripts/fetch_datagovin.py --list
+
+### 3. Fetch and rebuild
+    python scripts/fetch_datagovin.py --all
+    python src/build_data.py
+    streamlit run app.py
+
+### 4. SPI (rainfall anomalies)
+To enable the SPI (Standardised Precipitation Index), provide a monthly rainfall file at
+`data/raw/district_rainfall_monthly.csv` with columns `state, district, year, month, rainfall_mm`
+(e.g. from an IMD monthly-rainfall resource on data.gov.in). The pipeline then computes
+SPI-3 and SPI-12 automatically.
+
+### Helper module
+`src/datagovin.py` wraps the OGD API: `DataGovIn().fetch(resource_id, filters=...)`,
+`DataGovIn().fields(resource_id)` and `DataGovIn().search(keyword)`. It handles pagination,
+the last-page off-by-one, SSL fallback and polite delays.
+
 ## 📋 Core Python Functions
 
 | Function | Description | 
