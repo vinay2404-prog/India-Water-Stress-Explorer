@@ -332,7 +332,7 @@ if SPI_PATH.exists():
     mrf["district"] = mrf["district"].astype(str).str.strip().str.title()
     spi_summary_rows = []
     spi_ts_frames = []
-    for (st, dist_name), g in mrf.groupby(["state", "district"]):
+    for (st_name, dist_name), g in mrf.groupby(["state", "district"]):
         g = g.sort_values(["year", "month"])
         rain = g["rainfall_mm"].to_numpy(float)
         s3 = F.spi(rain, 3)
@@ -340,13 +340,13 @@ if SPI_PATH.exists():
         valid3 = s3[~np.isnan(s3)]
         valid12 = s12[~np.isnan(s12)]
         spi_summary_rows.append({
-            "state": st, "district": dist_name,
+            "state": st_name, "district": dist_name,
             "spi_3_latest": float(valid3[-1]) if len(valid3) else np.nan,
             "spi_12_latest": float(valid12[-1]) if len(valid12) else np.nan,
             "spi_12_mean_12m": float(np.nanmean(s12[-12:])) if len(s12) >= 12 else np.nan,
         })
         spi_ts_frames.append(pd.DataFrame({
-            "state": st, "district": dist_name,
+            "state": st_name, "district": dist_name,
             "year": g["year"].to_numpy(), "month": g["month"].to_numpy(),
             "spi_3": s3, "spi_12": s12,
         }))

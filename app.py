@@ -220,6 +220,14 @@ with tabs[2]:
                    f"stations with p<0.05 = {0 if pd.isna(ts) else ts*100:.0f}% "
                    f"(of {int(r.get('trend_n', 0))} stations).")
 
+    s3 = r.get("spi_3_latest", None)
+    s12 = r.get("spi_12_latest", None)
+    s12m = r.get("spi_12_mean_12m", None)
+    if pd.notna(s3) or pd.notna(s12):
+        st.caption(f"SPI (Standardised Precipitation Index): SPI-3 = {s3:+.2f}, "
+                   f"SPI-12 = {s12:+.2f}, 12-mo mean SPI-12 = {s12m:+.2f} "
+                   f"(negative = drier than normal; data through 2020).")
+
     series = dy[(dy["state"] == state) & (dy["district"] == name)].sort_values("year")
     left, right = st.columns([3, 2])
     with left:
@@ -306,6 +314,8 @@ with tabs[4]:
         "(rainfall volume per person). Telangana districts use the 2011 Andhra Pradesh figures.\n"
         "- **District area:** derived from the district GeoJSON (spherical polygon area) - used to convert rainfall (mm) "
         "into a volume for the Falkenmark indicator.\n"
+        "- **SPI (drought):** computed from district monthly rainfall (1969-2020) where available; SPI-3 and SPI-12 "
+        "stored in `district_metrics.csv` and the full series in `district_spi.csv`.\n"
         "- **Stage of extraction:** CGWB Dynamic Ground Water Resources assessment (state level, 2024-25).\n"
         "- **Specific yield hint:** CGWB guidance (hard-rock \u2248 0.02-0.04 vs alluvial \u2248 0.10-0.16), by state; "
         "the slider still overrides it for the recharge calculation.")
