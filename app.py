@@ -239,6 +239,13 @@ with tabs[2]:
                    f"domestic = {0 if pd.isna(ext_dom) else ext_dom:,.0f}. "
                    f"Category: {r.get('category_cgwb', 'n/a')}.")
 
+    rpct = r.get("reservoir_storage_pct", None)
+    rcnt = r.get("reservoir_count", None)
+    if pd.notna(rpct):
+        st.caption(f"Reservoir storage (CWC, Mar 2024): {rpct:.1f}% of live capacity "
+                   f"(stress = {r.get('reservoir_stress', float('nan')):.2f}; "
+                   f"{0 if pd.isna(rcnt) else int(rcnt)} reservoir(s) mapped to this district/state).")
+
     series = dy[(dy["state"] == state) & (dy["district"] == name)].sort_values("year")
     left, right = st.columns([3, 2])
     with left:
@@ -325,8 +332,9 @@ with tabs[4]:
         "(rainfall volume per person). Telangana districts use the 2011 Andhra Pradesh figures.\n"
         "- **District area:** derived from the district GeoJSON (spherical polygon area) - used to convert rainfall (mm) "
         "into a volume for the Falkenmark indicator.\n"
-        "- **SPI (drought):** computed from district monthly rainfall (1969-2020) where available; SPI-3 and SPI-12 "
-        "stored in `district_metrics.csv` and the full series in `district_spi.csv`.\n"
+        "- **Reservoir storage:** CWC daily reservoir levels (March 2024) - storage as % of live capacity; "
+        "mapped to districts via nearest centroid, state-level fallback where no reservoir is nearby.\n"
+        "- **Reservoir-power linkage:** NITI Aayog ICED - which reservoirs feed thermal power plants.\n"
         "- **Stage of extraction:** CGWB Dynamic Ground Water Resources assessment (district level, 2025 report, "
         "parsed from the National Compilation PDF; 473 of 482 districts matched). State-level fallback where missing.\n"
         "- **Specific yield hint:** CGWB guidance (hard-rock \u2248 0.02-0.04 vs alluvial \u2248 0.10-0.16), by state; "

@@ -412,6 +412,33 @@ else:
     dist["spi_12_mean_12m"] = np.nan
     print("NOTE: district_rainfall_monthly.csv not found - SPI skipped (see README).")
 
+# 3g. Reservoir storage (CWC, March 2024) - median storage % per district/state.
+RES_PATH = RAW / "reservoir_storage.csv"
+if RES_PATH.exists():
+    res = pd.read_csv(RES_PATH)
+    # district-level: median storage_pct across reservoirs mapped to that district
+    dist_res = res.groupby(["state", "district"], as_index=False).agg(
+        reservoir_storage_pct=("storage_pct_mean", "median"),
+        reservoir_count=("Reservoir_name", "nunique"))
+    dist = dist.merge(dist_res, on=["state", "district"], how="left")
+    # state-level fallback for districts without a reservoir
+    state_res = res.groupby("state", as_index=False).agg(
+        reservoir_storage_pct_state=("storage_pct_mean", "median"))
+    dist = dist.merge(state_res, on="state", how="left")
+    mask = dist["reservoir_storage_pct"].isna()
+    dist.loc[mask, "reservoir_storage_pct"] = dist.loc[mask, "reservoir_storage_pct_state"]
+    dist = dist.drop(columns=["reservoir_storage_pct_state"])
+    # reservoir stress: 0 (full) .. 1 (empty)
+    dist["reservoir_stress"] = 1 - (dist["reservoir_storage_pct"] / 100.0)
+    dist["reservoir_stress"] = dist["reservoir_stress"].clip(0, 1)
+    print("reservoir storage matched:", dist.reservoir_storage_pct.notna().sum(), "of", len(dist),
+          "(district+state fallback)")
+else:
+    dist["reservoir_storage_pct"] = np.nan
+    dist["reservoir_stress"] = np.nan
+    dist["reservoir_count"] = 0
+    print("NOTE: reservoir_storage.csv not found - reservoir stress skipped.")
+
 dist = dist[dist.stations >= 3].dropna(subset=["pre_depth", "trend", "rain_annual", "rise_m"]).reset_index(drop=True)
 print("districts analysed:", len(dist))
 
