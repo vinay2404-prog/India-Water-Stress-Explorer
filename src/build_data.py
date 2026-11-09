@@ -11,7 +11,7 @@ Outputs (data/processed):
   * district_year.csv      district x year pre/post-monsoon medians (for time series)
   * stations.csv           station-level recent depth and trend (for the map)
 """
-import re
+import json, math, re
 import difflib
 from pathlib import Path
 import numpy as np
@@ -149,6 +149,172 @@ res.columns = ["rain_annual", "rain_jjas", "rain_match"]
 dist = pd.concat([dist, res], axis=1)
 dist["monsoon_share"] = F.monsoon_share(dist.rain_jjas, dist.rain_annual)
 print("rainfall match:\n", dist.rain_match.value_counts().to_string())
+
+# ------------------------------------------------------------------ 3. Tier-1 enrichment: population (Census 2011), district area +
+#    Falkenmark water-per-capita (from the district GeoJSON), stage of groundwater
+#    extraction (CGWB, state level) and a specific-yield hint (aquifer type).
+GEO_PATH = ROOT / "data/geo/india_district.geojson"
+POP_PATH = RAW / "india_census_2011.csv"
+
+# 3a. District area (km2) + geo_id from the GeoJSON (pure-Python spherical area).
+def _spherical_area_km2(geom):
+    """Area of a GeoJSON geometry in km2 (spherical trapezoid formula)."""
+    def ring_area(coords):
+        # coords: list of [lon, lat]
+        R = 6371.0  # km
+        if not coords:
+            return 0.0
+        if coords[0] != coords[-1]:
+            coords = coords + [coords[0]]
+        s = 0.0
+        for i in range(len(coords) - 1):
+            lon1, lat1 = math.radians(coords[i][0]), math.radians(coords[i][1])
+            lon2, lat2 = math.radians(coords[i + 1][0]), math.radians(coords[i + 1][1])
+            s += (lon2 - lon1) * (2.0 + math.sin(lat1) + math.sin(lat2))
+        return abs(s) * R * R / 2.0
+    gtype = geom["type"]
+    coords = geom["coordinates"]
+    if gtype == "Polygon":
+        return ring_area(coords[0]) - sum(ring_area(r) for r in coords[1:])
+    if gtype == "MultiPolygon":
+        return sum(_spherical_area_km2({"type": "Polygon", "coordinates": p}) for p in coords)
+    return 0.0
+
+
+def _state_key(s):
+    return (str(s).strip().title()
+            .replace("Andaman And Nicobar Islands", "Andaman & Nicobar")
+            .replace("Nct Of Delhi", "Delhi")
+            .replace("Dadra And Nagar Haveli", "Dadra & Nagar Haveli")
+            .replace("Daman And Diu", "Daman & Diu")
+            .replace("Orissa", "Odisha")
+            .replace("Pondicherry", "Puducherry")
+            .replace("Uttaranchal", "Uttarakhand")
+            .replace("Jammu And Kashmir", "Jammu & Kashmir"))
+
+
+GEO_ALIASES = dict(DISTRICT_ALIASES)
+GEO_ALIASES.update({"Telangana": "Andhra Pradesh"})  # 2011-era geojson keeps AP intact
+
+
+def _match_geo(state, district):
+    target_state = "Andhra Pradesh" if state == "Telangana" else state
+    cands = [f for f in geo_features if f["state"] == target_state]
+    k = norm(district)
+    # alias
+    a = GEO_ALIASES.get(district)
+    if a:
+        for f in cands:
+            if norm(a) == norm(f["district"]):
+                return f
+    for f in cands:
+        if norm(f["district"]) == k:
+            return f
+    # fuzzy
+    keys = [norm(f["district"]) for f in cands]
+    mm = difflib.get_close_matches(k, keys, n=1, cutoff=0.82)
+    if mm:
+        idx = keys.index(mm[0])
+        return cands[idx]
+    return None
+
+
+geo_features = []
+if GEO_PATH.exists():
+    gj = json.load(open(GEO_PATH))
+    for f in gj["features"]:
+        p = f["properties"]
+        geo_features.append({
+            "id1": p["ID_1"], "id2": p["ID_2"],
+            "state": _state_key(p["NAME_1"]),
+            "district": p["NAME_2"],
+            "area_km2": round(_spherical_area_km2(f["geometry"]), 1),
+        })
+    geo_id_map = {}
+    area_map = {}
+    for row in dist.itertuples(index=False):
+        gf = _match_geo(row.state, row.district)
+        if gf is not None:
+            gid = f"{gf['id1']}_{gf['id2']}"
+            geo_id_map[(row.state, row.district)] = gid
+            area_map[(row.state, row.district)] = gf["area_km2"]
+    dist["geo_id"] = dist.apply(lambda r: geo_id_map.get((r.state, r.district)), axis=1)
+    dist["area_km2"] = dist.apply(lambda r: area_map.get((r.state, r.district)), axis=1)
+    print("geo matched:", dist.geo_id.notna().sum(), "of", len(dist))
+else:
+    dist["geo_id"] = np.nan
+    dist["area_km2"] = np.nan
+    print("WARNING: geojson not found at", GEO_PATH, "- choropleth disabled")
+
+# 3b. Population (Census 2011) + Falkenmark water per capita.
+POP_ALIASES = dict(DISTRICT_ALIASES)
+POP_ALIASES.update({
+    "Gurugram": "Gurgaon", "Ballari": "Bellary", "Kalaburagi": "Gulbarga",
+    "Prayagraj": "Allahabad", "Ayodhya": "Faizabad", "Tuticorin": "Thoothukudi",
+    "Mohali": "SAS Nagar (Mohali)", "Sbs Nagar": "Nawanshahr",
+    "Cooch Behar": "Koch Bihar", "Howrah": "Haora",
+    "North 24 Parganas": "North Twenty Four Parganas",
+    "South 24 Parganas": "South Twenty Four Parganas",
+    "G.B. Nagar": "Gautam Buddha Nagar", "Trichur": "Thrissur",
+    "Kabirdham": "Kabeerdham", "Beed": "Bid", "Raigad": "Raigarh",
+})
+
+
+def _match_pop(state, district):
+    target_state = "Andhra Pradesh" if state == "Telangana" else state
+    cand = pop[pop.state_n == target_state]
+    k = norm(district)
+    a = POP_ALIASES.get(district)
+    if a:
+        ex = cand[cand.dname_n == norm(a)]
+        if len(ex):
+            return int(ex.iloc[0].Population)
+    ex = cand[cand.dname_n == k]
+    if len(ex):
+        return int(ex.iloc[0].Population)
+    mm = difflib.get_close_matches(k, list(cand.dname_n), n=1, cutoff=0.75)
+    if mm:
+        return int(cand[cand.dname_n == mm[0]].iloc[0].Population)
+    return np.nan
+
+
+if POP_PATH.exists():
+    pop = pd.read_csv(POP_PATH)
+    pop["state_n"] = pop["State name"].map(_state_key).replace("Telangana", "Andhra Pradesh")
+    pop["dname_n"] = pop["District name"].map(norm)
+    dist["population"] = dist.apply(lambda r: _match_pop(r.state, r.district), axis=1)
+    # Falkenmark-style: renewable water (rainfall volume) per person, m3/person/yr
+    dist["rainfall_volume_mcm"] = dist["rain_annual"] / 1000.0 * dist["area_km2"]  # million m3 (mm->m * km2)
+    dist["falkenmark_m3_per_person"] = (dist["rainfall_volume_mcm"] * 1e6) / dist["population"]
+    print("population matched:", dist.population.notna().sum(), "of", len(dist))
+else:
+    dist["population"] = np.nan
+    dist["rainfall_volume_mcm"] = np.nan
+    dist["falkenmark_m3_per_person"] = np.nan
+    print("WARNING: census file not found at", POP_PATH)
+
+# 3c. Stage of groundwater extraction (CGWB, state level, 2024-25 assessment).
+STAGE_OF_EXTRACTION = {
+    "Andhra Pradesh": 31.51, "Arunachal Pradesh": 0.41, "Assam": 10.0, "Bihar": 35.0,
+    "Chhattisgarh": 48.18, "Goa": 15.0, "Gujarat": 62.0, "Haryana": 136.75,
+    "Himachal Pradesh": 38.50, "Jharkhand": 32.89, "Jammu & Kashmir": 30.0,
+    "Karnataka": 66.49, "Kerala": 49.95, "Madhya Pradesh": 59.32, "Maharashtra": 51.79,
+    "Manipur": 9.09, "Meghalaya": 5.24, "Mizoram": 5.0, "Nagaland": 4.72,
+    "Odisha": 48.75, "Punjab": 145.0, "Rajasthan": 147.11, "Sikkim": 5.0,
+    "Tamil Nadu": 73.50, "Telangana": 46.69, "Tripura": 10.06, "Uttar Pradesh": 70.0,
+    "Uttarakhand": 45.0, "West Bengal": 45.19, "Delhi": 92.10, "Chandigarh": 67.0,
+    "Puducherry": 50.0, "Andaman & Nicobar": 5.0, "Dadra & Nagar Haveli": 30.0,
+    "Daman & Diu": 30.0, "Lakshadweep": 5.0,
+}
+dist["stage_extraction_pct"] = dist["state"].map(STAGE_OF_EXTRACTION)
+
+# 3d. Specific-yield hint by aquifer type (state-level heuristic, CGWB guidance).
+HARD_ROCK_STATES = {"Karnataka", "Tamil Nadu", "Maharashtra", "Madhya Pradesh",
+                    "Rajasthan", "Andhra Pradesh", "Telangana", "Odisha", "Jharkhand",
+                    "Chhattisgarh", "Kerala", "Himachal Pradesh", "Uttarakhand",
+                    "Jammu & Kashmir", "Gujarat"}
+dist["sy_hint"] = dist["state"].map(lambda s: 0.04 if s in HARD_ROCK_STATES else 0.12)
+dist["aquifer_type"] = dist["state"].map(lambda s: "hard rock" if s in HARD_ROCK_STATES else "alluvial")
 
 dist = dist[dist.stations >= 3].dropna(subset=["pre_depth", "trend", "rain_annual", "rise_m"]).reset_index(drop=True)
 print("districts analysed:", len(dist))

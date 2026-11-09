@@ -5,6 +5,7 @@ Data: built by `python src/build_data.py` from CGWB groundwater levels + IMD dis
 """
 import sys
 from pathlib import Path
+import json
 
 import numpy as np
 import pandas as pd
@@ -28,7 +29,30 @@ def load():
             pd.read_csv(p / "stations.csv"))
 
 
+@st.cache_data
+def load_geo():
+    """District boundaries (GeoJSON) with a stable geo_id on each feature."""
+    p = ROOT / "data/geo/india_district.geojson"
+    if not p.exists():
+        # Fallback: fetch from the public source once and cache locally.
+        try:
+            import urllib.request
+            url = ("https://raw.githubusercontent.com/geohacker/india/"
+                   "c3df722d136666b6b663f9359336ae1543809a48/district/india_district.geojson")
+            p.parent.mkdir(parents=True, exist_ok=True)
+            urllib.request.urlretrieve(url, p)
+        except Exception:
+            return None
+    if not p.exists():
+        return None
+    gj = json.load(open(p))
+    for f in gj["features"]:
+        f["properties"]["geo_id"] = f"{f['properties']['ID_1']}_{f['properties']['ID_2']}"
+    return gj
+
+
 dist_raw, dy, stations = load()
+geojson = load_geo()
 
 
 def compute(df, sy, weights, cuts):
@@ -92,25 +116,39 @@ tabs = st.tabs(["Overview", "Rankings", "District explorer", "Rainfall vs ground
 
 # ------------------------------------------------------------------ 1 overview
 with tabs[0]:
-    k = st.columns(5)
+    k = st.columns(6)
     k[0].metric("Districts analysed", f"{len(df)}")
     k[1].metric("Critical / High", f"{int(df['category'].isin(['Critical', 'High']).sum())}")
     k[2].metric("Median depletion rate", f"{df['trend'].median():+.3f} m/yr")
     k[3].metric("Districts deepening >0.3 m/yr", f"{int((df['trend'] > 0.3).sum())}")
     k[4].metric("Median pre-monsoon depth", f"{df['pre_depth'].median():.1f} m")
+    fk = df["falkenmark_m3_per_person"].median()
+    k[5].metric("Median Falkenmark", "n/a" if pd.isna(fk) else f"{fk:,.0f} m\u00b3/p/yr")
 
     left, right = st.columns([2, 1])
     with left:
-        fig = px.scatter_geo(df, lat="lat", lon="lon", color="wsi", size="stations", size_max=14,
-                             color_continuous_scale="RdYlGn_r", range_color=(0, 100),
-                             hover_name="district",
-                             hover_data={"state": True, "wsi": ":.1f", "pre_depth": ":.1f", "trend": ":.2f",
-                                         "rain_annual": ":.0f", "lat": False, "lon": False, "stations": True},
-                             labels={"wsi": "Stress index"})
-        fig.update_geos(scope="asia", lonaxis_range=[67, 98], lataxis_range=[6, 37], showcountries=True,
-                        showland=True, landcolor="#f3f1ea", countrycolor="#999")
-        fig.update_layout(height=560, margin=dict(l=0, r=0, t=10, b=0))
-        st.plotly_chart(fig, width='stretch')
+        if geojson is not None and "geo_id" in df.columns:
+            fig = px.choropleth(
+                df, geojson=geojson, locations="geo_id", featureidkey="properties.geo_id",
+                color="wsi", color_continuous_scale="RdYlGn_r", range_color=(0, 100),
+                hover_name="district",
+                hover_data={"state": True, "wsi": ":.1f", "pre_depth": ":.1f", "trend": ":.2f",
+                            "rain_annual": ":.0f", "stations": True, "geo_id": False},
+                labels={"wsi": "Stress index"})
+            fig.update_geos(fitbounds="locations", visible=False)
+            fig.update_layout(height=560, margin=dict(l=0, r=0, t=10, b=0))
+            st.plotly_chart(fig, width='stretch')
+        else:
+            fig = px.scatter_geo(df, lat="lat", lon="lon", color="wsi", size="stations", size_max=14,
+                                 color_continuous_scale="RdYlGn_r", range_color=(0, 100),
+                                 hover_name="district",
+                                 hover_data={"state": True, "wsi": ":.1f", "pre_depth": ":.1f", "trend": ":.2f",
+                                             "rain_annual": ":.0f", "lat": False, "lon": False, "stations": True},
+                                 labels={"wsi": "Stress index"})
+            fig.update_geos(scope="asia", lonaxis_range=[67, 98], lataxis_range=[6, 37], showcountries=True,
+                            showland=True, landcolor="#f3f1ea", countrycolor="#999")
+            fig.update_layout(height=560, margin=dict(l=0, r=0, t=10, b=0))
+            st.plotly_chart(fig, width='stretch')
     with right:
         cnt = (df["category"].value_counts().reindex(F.CATEGORY_ORDER).fillna(0).rename_axis("category")
                .reset_index(name="districts"))
@@ -161,6 +199,18 @@ with tabs[2]:
     m[3].metric("Annual rainfall", f"{r.rain_annual:.0f} mm")
     m[4].metric("Recharge (WTF)", f"{r.recharge_mm:.0f} mm")
     m[5].metric("Stations", f"{int(r.stations)}")
+
+    m2 = st.columns(4)
+    pop = r.get("population", None)
+    m2[0].metric("Population (2011)", "n/a" if pd.isna(pop) else f"{int(pop):,}")
+    fk = r.get("falkenmark_m3_per_person", None)
+    fclass = F.falkenmark_classify(pd.Series([fk])).iloc[0] if pd.notna(fk) else "n/a"
+    m2[1].metric("Falkenmark", "n/a" if pd.isna(fk) else f"{fk:,.0f} m\u00b3/p/yr", fclass, delta_color="off")
+    se = r.get("stage_extraction_pct", None)
+    m2[2].metric("Stage of extraction (state)", "n/a" if pd.isna(se) else f"{se:.1f} %")
+    syh = r.get("sy_hint", None)
+    m2[3].metric("Aquifer type", str(r.get("aquifer_type", "n/a")),
+                 f"suggested Sy \u2248 {syh:.2f}" if pd.notna(syh) else None, delta_color="off")
 
     series = dy[(dy["state"] == state) & (dy["district"] == name)].sort_values("year")
     left, right = st.columns([3, 2])
@@ -243,16 +293,29 @@ with tabs[4]:
         "- **Groundwater:** CGWB station readings 1970-2025. Readings outside 0-100 m were removed. "
         "Pre-monsoon = mean of April and May; post-monsoon = November. District values are medians across stations "
         "(recent window 2021-25; trend 2010-25, at least 8 years per station, at least 3 stations per district).\n"
-        "- **Rainfall:** IMD district normals (annual and Jun-Sep). Joined by state + district name.")
+        "- **Rainfall:** IMD district normals (annual and Jun-Sep). Joined by state + district name.\n"
+        "- **Population:** Census of India 2011 (district level) - used for the Falkenmark indicator "
+        "(rainfall volume per person). Telangana districts use the 2011 Andhra Pradesh figures.\n"
+        "- **District area:** derived from the district GeoJSON (spherical polygon area) - used to convert rainfall (mm) "
+        "into a volume for the Falkenmark indicator.\n"
+        "- **Stage of extraction:** CGWB Dynamic Ground Water Resources assessment (state level, 2024-25).\n"
+        "- **Specific yield hint:** CGWB guidance (hard-rock \u2248 0.02-0.04 vs alluvial \u2248 0.10-0.16), by state; "
+        "the slider still overrides it for the recharge calculation.")
     mt = dist_raw["rain_match"].value_counts().rename_axis("how rainfall was matched").reset_index(name="districts")
     st.dataframe(mt, hide_index=True)
+    st.subheader("Geo / population match quality")
+    gm = pd.DataFrame({"dataset": ["District boundaries (GeoJSON)", "Census 2011 population"],
+                       "matched": [int(dist_raw["geo_id"].notna().sum()), int(dist_raw["population"].notna().sum())],
+                       "of": [len(dist_raw), len(dist_raw)]})
+    st.dataframe(gm, hide_index=True)
     st.header("Limitations")
     st.markdown(
         "- The index is **relative** (districts ranked against each other), not an absolute scarcity measure.\n"
-        "- It has **no extraction or population data**, so the CGWB 'stage of extraction' and the Falkenmark indicator "
-        "cannot be calculated from these two datasets.\n"
+        "- **Stage of extraction** is shown at **state level only** (CGWB publishes district-level assessments as PDFs).\n"
         "- The WTF recharge depends strongly on the specific yield you pick and ignores monsoon pumping.\n"
+        "- The Falkenmark indicator here is a **rainfall-volume proxy** (not blue-water availability), using 2011 population.\n"
         "- Districts with state-average rainfall (old vs new district names) are less precise.\n"
-        "- Station networks changed over time, so district trends reflect the stations that reported.")
+        "- Station networks changed over time, so district trends reflect the stations that reported.\n"
+        "- District boundaries are from a 2011-era GeoJSON; newer (post-2011) districts inherit parent geometries where matched.")
     st.download_button("Download district results (CSV)", df.round(3).to_csv(index=False).encode(),
                        file_name="water_stress_results.csv", mime="text/csv")

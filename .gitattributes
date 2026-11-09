@@ -1,0 +1,6 @@
+*.geojson binary
+*.twbx binary
+*.xlsx binary
+*.csv text eol=lf
+*.py text eol=lf
+*.md text eol=lf

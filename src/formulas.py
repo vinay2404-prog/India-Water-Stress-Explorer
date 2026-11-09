@@ -115,6 +115,21 @@ def water_stress_index(df, weights):
     return weighted_index(stress_components(df), weights)
 
 
+FALKENMARK_THRESHOLDS = (500, 1000, 1700)  # absolute scarcity / scarcity / stress (m3/person/yr)
+
+
+def falkenmark_classify(values):
+    """Falkenmark water-scarcity class from renewable water per person (m3/yr).
+
+    < 500  -> absolute scarcity
+    500-1000 -> scarcity
+    1000-1700 -> stress
+    >= 1700 -> no stress
+    """
+    s = pd.Series(values, dtype=float)
+    out = pd.Series(np.select([s < 500, s < 1000, s < 1700], ["Absolute scarcity", "Scarcity", "Stress"],
+                              "No stress"), index=s.index)
+    return out.where(s.notna())
 CATEGORY_COLORS = {"Low": "#2a9d8f", "Moderate": "#e9c46a", "High": "#f4a261", "Critical": "#c1121f"}
 CATEGORY_ORDER = ["Low", "Moderate", "High", "Critical"]
 
