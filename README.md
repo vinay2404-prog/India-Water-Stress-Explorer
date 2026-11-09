@@ -349,10 +349,13 @@ The resulting WSI is classified into four categories.
 
 ## ⚠️ Scientific Considerations & Limitations
 
-* **Trend Assumptions:** Groundwater depletion rates are estimated using historical linear trends (2010–2025) and do not represent guaranteed future behavior.
+* **Trend Assumptions:** Groundwater depletion rates are estimated using historical linear trends (2010–2025) and do not represent guaranteed future behavior. Per-station significance (p-value, R²) is reported; many districts have no statistically significant trend.
 * **WTF Simplification:** The WTF recharge estimate uses seasonal water-table fluctuations and does not explicitly account for groundwater pumping, lateral flows, or other water-balance components during the monsoon.
 * **Relative Normalization:** Annual rainfall normalization and WSI scores represent relative conditions within the analyzed dataset, not absolute global thresholds.
 * **Rainfall Matching:** CGWB and IMD district names differ (old spellings, abbreviations). Verified name aliases are applied first, then fuzzy matching; unmatched districts (mostly post-2001 bifurcated districts without an IMD-normal counterpart) fall back to the **state average**, which is less precise (visible in the app's "Method & data" tab).
+* **Extraction data:** the CGWB 'stage of extraction' is shown at **state level only**; district-level extraction requires parsing CGWB's block-level PDF reports.
+* **Falkenmark indicator:** reported as a **rainfall-volume proxy** (not blue-water availability), using 2011 population.
+* **Specific yield:** a single slider is used; a per-state hint (hard rock vs alluvial) is shown but does not override the slider automatically.
 * **Weight Sensitivity:** WSI results depend on component weights and normalization reference parameters.
 * **Scope:** The model is intended for research and exploratory water-resource assessment, not as an operational regulatory tool.
 
@@ -368,10 +371,15 @@ This model can support:
 
 ## 🚀 Future Improvements
 
-* Incorporate long-term rainfall anomalies (e.g., Standardized Precipitation Index).
-* Integrate groundwater extraction volumes and agricultural water-demand data.
-* Refine specific yield parameters using localized hydrogeological maps.
-* Implement GIS choropleth mapping at the district boundary level.
+* ~~Implement GIS choropleth mapping at the district boundary level.~~ (done)
+* ~~Integrate groundwater extraction volumes and agricultural water-demand data.~~ (state-level extraction done; district-level needs CGWB block reports)
+* ~~Refine specific yield parameters using localized hydrogeological maps.~~ (state-level Sy hint done; district aquifer maps still open)
+* Incorporate long-term rainfall anomalies (e.g., Standardized Precipitation Index) - code ready, needs district monthly rainfall data.
+* Integrate groundwater quality (fluoride, arsenic, nitrate, salinity).
+* Add GRACE/GRACE-FO satellite validation of groundwater trends.
+* Add land-use / irrigated-area demand layer.
+* Surface water (reservoirs, rivers) for a full water balance.
+* Publish a district-level extraction dataset parsed from CGWB reports.
 
 ## 📌 Disclaimer
 

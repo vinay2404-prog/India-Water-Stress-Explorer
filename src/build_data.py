@@ -59,14 +59,19 @@ sy = sy.merge(gw[["sid", "state", "district", "latitude", "longitude", "well_dep
 # ---- station level: OLS depletion rate 2010-2025 + recent means
 # (single OLS implementation: formulas.depletion_rate, same as the app uses)
 t = sy[(sy.year >= TREND_FROM) & sy.pre.notna()].copy()
-slope = t.groupby("sid")[["year", "pre"]].apply(
-    lambda g: F.depletion_rate(g["year"], g["pre"])).rename("slope")
-n = t.groupby("sid").pre.size().rename("n")
-g = pd.concat([slope, n], axis=1)
-g = g[(g.n >= MIN_TREND_YEARS) & g.slope.between(-5, 5)]
+
+
+def _station_stats(grp):
+    sl, ic, r, p, se = F.trend_stats(grp["year"], grp["pre"])
+    return pd.Series({"slope": sl, "pvalue": p, "r2": (r * r) if pd.notna(r) else np.nan,
+                      "n": len(grp)})
+
+
+stats_df = t.groupby("sid")[["year", "pre"]].apply(_station_stats)
+g = stats_df[(stats_df["n"] >= MIN_TREND_YEARS) & stats_df["slope"].between(-5, 5)]
 rec = sy[sy.year.between(*RECENT)].groupby("sid").agg(pre=("pre", "mean"), post=("post", "mean"), rise=("rise", "mean"))
-st = gw.set_index("sid")[["stationName", "state", "district", "latitude", "longitude", "well_depth_n"]].join(rec).join(g[["slope"]])
-st = st.rename(columns={"pre": "pre_depth", "post": "post_depth", "slope": "trend"})
+st = gw.set_index("sid")[["stationName", "state", "district", "latitude", "longitude", "well_depth_n"]].join(rec).join(g[["slope", "pvalue", "r2"]])
+st = st.rename(columns={"pre": "pre_depth", "post": "post_depth", "slope": "trend", "pvalue": "trend_pvalue", "r2": "trend_r2"})
 old = sy[sy.year.between(2005, 2011)].groupby("sid").pre.mean().rename("pre_2005_11")
 st = st.join(old)
 
@@ -74,6 +79,8 @@ st = st.join(old)
 dist = st.groupby(["state", "district"]).agg(
     stations=("pre_depth", "count"), pre_depth=("pre_depth", "median"), post_depth=("post_depth", "median"),
     rise_m=("rise", "median"), trend=("trend", "median"), trend_n=("trend", "count"),
+    trend_pvalue=("trend_pvalue", "median"), trend_r2=("trend_r2", "median"),
+    trend_sig=("trend_pvalue", lambda s: float((s < 0.05).mean()) if len(s) else np.nan),
     pre_2005_11=("pre_2005_11", "median"),
     well_depth=("well_depth_n", lambda s: s[(s > 0) & (s <= 500)].median()),
     lat=("latitude", "mean"), lon=("longitude", "mean")).reset_index()
@@ -315,6 +322,43 @@ HARD_ROCK_STATES = {"Karnataka", "Tamil Nadu", "Maharashtra", "Madhya Pradesh",
                     "Jammu & Kashmir", "Gujarat"}
 dist["sy_hint"] = dist["state"].map(lambda s: 0.04 if s in HARD_ROCK_STATES else 0.12)
 dist["aquifer_type"] = dist["state"].map(lambda s: "hard rock" if s in HARD_ROCK_STATES else "alluvial")
+
+# 3e. SPI (Standardised Precipitation Index) from district monthly rainfall (optional).
+SPI_PATH = RAW / "district_rainfall_monthly.csv"
+if SPI_PATH.exists():
+    mrf = pd.read_csv(SPI_PATH)
+    mrf["state"] = mrf["state"].astype(str).str.strip().str.title().replace(
+        {"Orissa": "Odisha", "Uttaranchal": "Uttarakhand", "Pondicherry": "Puducherry"})
+    mrf["district"] = mrf["district"].astype(str).str.strip().str.title()
+    spi_summary_rows = []
+    spi_ts_frames = []
+    for (st, dist_name), g in mrf.groupby(["state", "district"]):
+        g = g.sort_values(["year", "month"])
+        rain = g["rainfall_mm"].to_numpy(float)
+        s3 = F.spi(rain, 3)
+        s12 = F.spi(rain, 12)
+        valid3 = s3[~np.isnan(s3)]
+        valid12 = s12[~np.isnan(s12)]
+        spi_summary_rows.append({
+            "state": st, "district": dist_name,
+            "spi_3_latest": float(valid3[-1]) if len(valid3) else np.nan,
+            "spi_12_latest": float(valid12[-1]) if len(valid12) else np.nan,
+            "spi_12_mean_12m": float(np.nanmean(s12[-12:])) if len(s12) >= 12 else np.nan,
+        })
+        spi_ts_frames.append(pd.DataFrame({
+            "state": st, "district": dist_name,
+            "year": g["year"].to_numpy(), "month": g["month"].to_numpy(),
+            "spi_3": s3, "spi_12": s12,
+        }))
+    spi_summary = pd.DataFrame(spi_summary_rows)
+    dist = dist.merge(spi_summary, on=["state", "district"], how="left")
+    pd.concat(spi_ts_frames, ignore_index=True).to_csv(OUT / "district_spi.csv", index=False)
+    print("SPI computed for", spi_summary.spi_3_latest.notna().sum(), "districts")
+else:
+    dist["spi_3_latest"] = np.nan
+    dist["spi_12_latest"] = np.nan
+    dist["spi_12_mean_12m"] = np.nan
+    print("NOTE: district_rainfall_monthly.csv not found - SPI skipped (see README).")
 
 dist = dist[dist.stations >= 3].dropna(subset=["pre_depth", "trend", "rain_annual", "rise_m"]).reset_index(drop=True)
 print("districts analysed:", len(dist))

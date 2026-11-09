@@ -212,6 +212,14 @@ with tabs[2]:
     m2[3].metric("Aquifer type", str(r.get("aquifer_type", "n/a")),
                  f"suggested Sy \u2248 {syh:.2f}" if pd.notna(syh) else None, delta_color="off")
 
+    tp = r.get("trend_pvalue", None)
+    tr = r.get("trend_r2", None)
+    ts = r.get("trend_sig", None)
+    if pd.notna(tp):
+        st.caption(f"Trend significance: median p = {tp:.3g}, median R\u00b2 = {tr:.2f}, "
+                   f"stations with p<0.05 = {0 if pd.isna(ts) else ts*100:.0f}% "
+                   f"(of {int(r.get('trend_n', 0))} stations).")
+
     series = dy[(dy["state"] == state) & (dy["district"] == name)].sort_values("year")
     left, right = st.columns([3, 2])
     with left:

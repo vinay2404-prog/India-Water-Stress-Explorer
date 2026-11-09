@@ -5,6 +5,7 @@ so the same code is used for the whole dataset and for a single district.
 """
 import numpy as np
 import pandas as pd
+from scipy import stats
 
 
 # ---------------------------------------------------------------- hydrology
@@ -79,6 +80,67 @@ def minmax(s, lo_q=0.05, hi_q=0.95):
     return ((s - lo) / (hi - lo)).clip(0, 1)
 
 
+def trend_stats(years, depth):
+    """OLS slope + significance for depth-to-water vs. year.
+
+    Returns (slope, intercept, r, p_value, stderr). NaNs if fewer than 3 valid
+    points or zero variance in x. Used by the data pipeline to flag trends
+    that are not statistically distinguishable from zero.
+    """
+    x = np.asarray(years, float)
+    y = np.asarray(depth, float)
+    ok = ~(np.isnan(x) | np.isnan(y))
+    x, y = x[ok], y[ok]
+    if len(x) < 3 or np.std(x) == 0:
+        return (np.nan, np.nan, np.nan, np.nan, np.nan)
+    res = stats.linregress(x, y)
+    return (float(res.slope), float(res.intercept), float(res.rvalue),
+            float(res.pvalue), float(res.stderr))
+def spi(monthly_rain, scale=3):
+    """Standardised Precipitation Index (SPI) for a monthly rainfall series.
+
+    `monthly_rain` : 1-D array-like of monthly rainfall (chronological, one value
+                     per month). Returns an array of SPI values aligned to the
+                     input (NaN for the first `scale-1` months and where the fit
+                     is degenerate). Fitting is done per calendar month so that
+                     seasonality is removed.
+    """
+    r = np.asarray(monthly_rain, float)
+    n = len(r)
+    out = np.full(n, np.nan)
+    if n < scale + 12:
+        return out
+    # rolling k-month sums, aligned to the END of the window
+    roll = pd.Series(r).rolling(scale, min_periods=scale).sum().to_numpy()
+    # fit per calendar month of the *end* month
+    months = (np.arange(n) % 12) + 1
+    for m in range(1, 13):
+        idx = np.where(months == m)[0]
+        idx = idx[idx >= scale - 1]
+        vals = roll[idx]
+        vals = vals[~np.isnan(vals)]
+        if len(vals) < 8:
+            continue
+        # probability of zero
+        p0 = float(np.mean(vals == 0))
+        pos = vals[vals > 0]
+        if len(pos) < 4:
+            continue
+        try:
+            a, loc, sc = stats.gamma.fit(pos, floc=0)
+        except Exception:
+            continue
+        for i in idx:
+            x = roll[i]
+            if np.isnan(x):
+                continue
+            if x == 0:
+                cdf = p0
+            else:
+                cdf = p0 + (1 - p0) * stats.gamma.cdf(x, a, loc=0, scale=sc)
+            cdf = min(max(cdf, 1e-4), 1 - 1e-4)
+            out[i] = float(stats.norm.ppf(cdf))
+    return out
 COMPONENTS = {
     "depth": "Pre-monsoon depth to water",
     "trend": "Depletion rate",
