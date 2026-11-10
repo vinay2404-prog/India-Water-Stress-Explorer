@@ -8,7 +8,84 @@ import pandas as pd
 from scipy import stats
 
 
-# ---------------------------------------------------------------- hydrology
+# ---------------------------------------------------------------- India-specific standards & methods
+# BIS IS 10500:2012 drinking water standards (India) - used for WQI
+BIS_10500 = {
+    "ph": (6.5, 8.5),        # (min, max) acceptable
+    "tds": 500,              # mg/L (desirable)
+    "fluoride": 1.0,         # mg/L (desirable) / 1.5 (permissible)
+    "nitrate": 45,           # mg/L
+    "arsenic": 0.01,         # mg/L
+    "iron": 0.3,             # mg/L
+    "chloride": 250,         # mg/L
+    "sulphate": 200,         # mg/L
+    "hardness": 200,         # mg/L (as CaCO3)
+    "turbidity": 1,           # NTU
+}
+
+
+def cgwb_rainfall_recharge(rainfall_mm, area_km2, infiltration_factor=0.10, specific_yield=None):
+    """CGWB Ground Water Resource Estimation (GEC) rainfall recharge  [ham or MCM].
+
+    GEC method:  R = (P - R_off) * A * f_i
+    where f_i is the rainfall infiltration factor (fraction of rainfall that
+    recharges groundwater). Typical f_i values (CGWB):
+        alluvial ( Indo-Gangetic ): 0.10 - 0.20
+        hard rock (peninsular):      0.05 - 0.10
+        hilly:                      0.04 - 0.08
+
+    rainfall_mm        : annual rainfall (mm)
+    area_km2           : district area (km2)
+    infiltration_factor: fraction (default 0.10)
+    Returns recharge in ham (hectare-metres) if area in km2 and rainfall in mm:
+        R (ham) = P (mm) * A (km2) * f_i / 100
+    """
+    p = np.asarray(rainfall_mm, float)
+    a = np.asarray(area_km2, float)
+    r = p * a * float(infiltration_factor) / 100.0  # ham
+    if specific_yield is not None:
+        # WTF cross-check: R = Sy * dh * A * 10000 (ham)
+        pass
+    return r
+
+
+def imd_drought_classify(spi_values):
+    """IMD operational drought classification from SPI.
+
+    IMD (India Meteorological Department) uses SPI for drought monitoring:
+        SPI >= -1.0          : No drought
+        -1.5 <= SPI < -1.0   : Moderate drought
+        -2.0 <= SPI < -1.5   : Severe drought
+        SPI < -2.0           : Extreme drought
+    """
+    s = pd.Series(spi_values, dtype=float)
+    out = pd.Series(np.select(
+        [s < -2.0, s < -1.5, s < -1.0],
+        ["Extreme drought", "Severe drought", "Moderate drought"],
+        "No drought"), index=s.index)
+    return out.where(s.notna())
+
+
+def cwmi_score(indicators, weights=None):
+    """NITI Aayog Composite Water Management Index (CWMI) score.
+
+    CWMI uses 28 indicators across 9 themes (Groundwater, Surface water, etc.)
+    with specific weights. This is a simplified version that accepts a dict of
+    indicator values and optional weights.
+
+    indicators : dict {indicator_name: value (0-100 scale)}
+    weights    : dict {indicator_name: weight} (default: equal weights)
+    Returns a single CWMI score (0-100).
+    """
+    if weights is None:
+        weights = {k: 1.0 for k in indicators}
+    total_w = sum(weights.get(k, 0) for k in indicators)
+    if total_w == 0:
+        return np.nan
+    score = sum(indicators[k] * weights.get(k, 0) for k in indicators) / total_w
+    return float(score)
+
+
 def depletion_rate(years, depth):
     """Ordinary least-squares slope of depth-to-water vs. year  [m / year].
         rate = (n*Σxy - Σx*Σy) / (n*Σx² - (Σx)²)
