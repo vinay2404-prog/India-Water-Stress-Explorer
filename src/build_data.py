@@ -201,14 +201,50 @@ def _state_key(s):
 
 
 GEO_ALIASES = dict(DISTRICT_ALIASES)
-GEO_ALIASES.update({"Telangana": "Andhra Pradesh"})  # 2011-era geojson keeps AP intact
+GEO_ALIASES.update({"Telangana": "Andhra Pradesh"})
+GEO_ALIASES.update({
+    "Gurugram": "Gurgaon", "Ballari": "Bellary", "Kalaburagi": "Gulbarga",
+    "Prayagraj": "Allahabad", "Ayodhya": "Faizabad", "Tuticorin": "Thoothukudi",
+    "Mohali": "Rupnagar", "Sbs Nagar": "Nawan Shehar",
+    "Cooch Behar": "Kochbihar", "Howrah": "Haora",
+    "North 24 Parganas": "North 24 Parganas",
+    "South 24 Parganas": "South 24 Parganas",
+    "G.B. Nagar": "Gautam Buddha Nagar", "Trichur": "Thrissur",
+    "Cuddapah": "Cuddapah", "Nellore": "Nellore",
+    "Kanker": "Kanker", "Dang": "The Dangs",
+    "Charkhi Dadri": "Bhiwani", "Nuh": "Gurgaon", "Agar Malwa": "Shajapur",
+    "Palghar": "Thane", "Sonapur": "Subarnapur", "Fazilka": "Firozpur",
+    "Pathankot": "Gurdaspur", "Ropar": "Rupnagar",
+    "Praygraj": "Allahabad", "Jhargram": "West Midnapore",
+    "North Dinajpur": "Uttar Dinajpur", "Paschim Bardhaman": "Barddhaman",
+    "West Medinipur": "West Midnapore", "Gaurella Pendra Marwahi": "Bilaspur",
+    "Kheri": "Lakhimpur Kheri", "Jyotiba Phule Nagar": "Jyotiba Phule Nagar",
+    "Ayodhya": "Faizabad", "G.B. Nagar": "Gautam Buddha Nagar",
+    "Mau": "Mau", "Champawat": "Champawat", "Thrissur": "Thrissur",
+    "Kaimur": "Bhabua", "Kabirdham": "Kawardha", "Dohad": "Dahod",
+    "Narsimhapur": "Narsinghpur", "Baudh": "Boudh", "Debagarh": "Deogarh",
+    "Barnala": "Sangrur", "Tarn Taran": "Amritsar", "Dholpur": "Dhaulpur",
+    "Krishnagiri": "Dharmapuri", "Tirunelveli": "Tirunelveli Kattabo",
+    "Tiruppur": "Coimbatore", "Tuticorin": "Thoothukudi",
+    "Warangal Rural": "Warangal", "Warangal Urban": "Warangal",
+    "Kanpur Nagar": "Kanpur", "East Medinipur": "East Midnapore",
+    "Purba Bardhaman": "Barddhaman", "South Dinajpur": "Dakshin Dinajpur",
+    "Beed": "Bid", "Mumbai City": "Greater Bombay", "Mumbai Suburban": "Greater Bombay",
+    "Raigad": "Raigarh", "Kullu": "Mandi", "Reasi": "Udhampur",
+    "Hamirpur": "Hamirpur", "Nuh": "Gurgaon", "Palwal": "Faridabad",
+    "Alirajpur": "Jhabua", "Singrauli": "Sidhi", "Pratapgarh": "Chittaurgarh",
+    "Jhargram": "West Midnapore",
+})
 
 
 def _match_geo(state, district):
-    target_state = "Andhra Pradesh" if state == "Telangana" else state
+    target_state = "Andhra Pradesh" if state == "Telangana" else ("Daman And Diu" if state == "Gujarat" and district == "Daman" else state)
     cands = [f for f in geo_features if f["state"] == target_state]
+    if not cands:
+        return None
+    if target_state == "Delhi":
+        return cands[0]
     k = norm(district)
-    # alias
     a = GEO_ALIASES.get(district)
     if a:
         for f in cands:
@@ -217,7 +253,6 @@ def _match_geo(state, district):
     for f in cands:
         if norm(f["district"]) == k:
             return f
-    # fuzzy
     keys = [norm(f["district"]) for f in cands]
     mm = difflib.get_close_matches(k, keys, n=1, cutoff=0.82)
     if mm:
@@ -257,18 +292,30 @@ else:
 POP_ALIASES = dict(DISTRICT_ALIASES)
 POP_ALIASES.update({
     "Gurugram": "Gurgaon", "Ballari": "Bellary", "Kalaburagi": "Gulbarga",
-    "Prayagraj": "Allahabad", "Ayodhya": "Faizabad", "Tuticorin": "Thoothukudi",
-    "Mohali": "SAS Nagar (Mohali)", "Sbs Nagar": "Nawanshahr",
+    "Prayagraj": "Allahabad", "Ayodhya": "Faizabad", "Tuticorin": "Thoothukkudi",
+    "Mohali": "Sahibzada Ajit Singh Nagar", "Sbs Nagar": "Shahid Bhagat Singh Nagar",
     "Cooch Behar": "Koch Bihar", "Howrah": "Haora",
     "North 24 Parganas": "North Twenty Four Parganas",
     "South 24 Parganas": "South Twenty Four Parganas",
     "G.B. Nagar": "Gautam Buddha Nagar", "Trichur": "Thrissur",
     "Kabirdham": "Kabeerdham", "Beed": "Bid", "Raigad": "Raigarh",
+    "Cuddapah": "Y.S.R.", "Nellore": "Sri Potti Sriramulu Nellore",
+    "Kanker": "Uttar Bastar Kanker", "Dang": "The Dangs",
+    "Charkhi Dadri": "Bhiwani", "Nuh": "Mewat", "Agar Malwa": "Shajapur",
+    "Palghar": "Thane", "Sonapur": "Subarnapur", "Fazilka": "Firozpur",
+    "Pathankot": "Gurdaspur", "Ropar": "Rupnagar",
+    "Tuticorin": "Thoothukkudi", "Praygraj": "Allahabad",
+    "Jhargram": "Paschim Medinipur", "North Dinajpur": "Uttar Dinajpur",
+    "Paschim Bardhaman": "Barddhaman", "West Medinipur": "Paschim Medinipur",
+    "Gaurella Pendra Marwahi": "Bilaspur", "Kheri": "Lakhimpur Kheri",
+    "Jyotiba Phule Nagar": "Amroha", "Ayodhya": "Faizabad",
+    "G.B. Nagar": "Gautam Buddha Nagar", "Mau": "Mau",
+    "Champawat": "Champawat", "Thrissur": "Thrissur",
 })
 
 
 def _match_pop(state, district):
-    target_state = "Andhra Pradesh" if state == "Telangana" else state
+    target_state = "Andhra Pradesh" if state == "Telangana" else ("Daman And Diu" if state == "Gujarat" and district == "Daman" else state)
     cand = pop[pop.state_n == target_state]
     k = norm(district)
     a = POP_ALIASES.get(district)
