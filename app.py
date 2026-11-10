@@ -540,6 +540,23 @@ with tabs[6]:
         "- **Specific yield hint:** CGWB guidance (hard-rock \u2248 0.02-0.04 vs alluvial \u2248 0.10-0.16), by state.")
     mt = dist_raw["rain_match"].value_counts().rename_axis("how rainfall was matched").reset_index(name="districts")
     st.dataframe(mt, hide_index=True)
+    st.subheader("Temporal coverage")
+    tc = pd.DataFrame({
+        "dataset": ["CGWB groundwater levels", "IMD rainfall normals", "Census 2011 population",
+                    "Monthly rainfall (SPI)", "CGWB extraction (2025)", "CWC reservoir storage",
+                    "District boundaries (GeoJSON)", "Reservoir-power linkage"],
+        "time range": ["1970-2025", "multi-decade normals (static)", "2011 (snapshot)",
+                       "1969-2020", "2024-25 (single year)", "Mar 2024 (single month)",
+                       "2011-era (static)", "static (no time dim.)"],
+        "used for": ["trend (2010-25), depth (2021-25)", "WSI rainfall component",
+                     "Falkenmark indicator", "SPI-3 / SPI-12 (drought)",
+                     "stage of extraction, CGWB category", "reservoir stress %",
+                     "choropleth, district area", "power-sector dependency"],
+    })
+    st.dataframe(tc, width='stretch', hide_index=True)
+    st.caption("**Key gap:** SPI data ends in 2020 while groundwater trends extend to 2025; "
+               "reservoir storage is a single month (Mar 2024); extraction is a single year (2024-25); "
+               "population is from 2011. These are source-data limitations, not pipeline bugs.")
     st.subheader("Geo / population match quality")
     gm = pd.DataFrame({"dataset": ["District boundaries (GeoJSON)", "Census 2011 population"],
                        "matched": [int(dist_raw["geo_id"].notna().sum()), int(dist_raw["population"].notna().sum())],
