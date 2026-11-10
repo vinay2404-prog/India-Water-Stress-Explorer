@@ -206,7 +206,7 @@ with tabs[2]:
     pop = r.get("population", None)
     m2[0].metric("Population (2011)", "n/a" if pd.isna(pop) else f"{int(pop):,}")
     fk = r.get("falkenmark_m3_per_person", None)
-    fclass = F.falkenmark_classify(pd.Series([fk])).iloc[0] if pd.notna(fk) else "n/a"
+    fclass = F.per_capita_classify(pd.Series([fk])).iloc[0] if pd.notna(fk) else "n/a"
     m2[1].metric("Falkenmark", "n/a" if pd.isna(fk) else f"{fk:,.0f} m\u00b3/p/yr", fclass, delta_color="off")
     se = r.get("stage_pct", None)
     cc = r.get("category_cgwb", None)

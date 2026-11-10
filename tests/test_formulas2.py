@@ -48,29 +48,10 @@ def test_exceedance():
     assert F.exceedance(3.0, 5.0) == 0
 
 
-def test_penman_monteith_et0_positive():
-    et0 = F.penman_monteith_et0(t_mean=25.0, t_min=20.0, t_max=30.0,
-                                 rh=60.0, u2=2.0, rs=20.0, elevation=100.0, lat_deg=20.0, doy=180)
-    assert et0 > 0 and et0 < 20
-
-
 def test_thornthwaite_pet():
     pet = F.thornthwaite_pet(np.array([10.0, 20.0, 5.0, -2.0]))
     assert pet[0] > 0
     assert pet[3] == 0.0  # negative temp -> 0
-
-
-def test_spei_basic():
-    rng = np.random.default_rng(7)
-    wb = rng.normal(loc=0, scale=50, size=240)
-    s = F.spei(wb, scale=3)
-    assert len(s) == 240
-    assert np.isfinite(s[-1])
-
-
-def test_spei_short_series():
-    s = F.spei([1.0, 2.0, 3.0], scale=3)
-    assert np.all(np.isnan(s))
 
 
 def test_ols_confidence_interval():

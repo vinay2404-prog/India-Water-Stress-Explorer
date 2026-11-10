@@ -120,8 +120,8 @@ def test_trend_stats():
     assert np.isnan(sl2)
 
 
-def test_falkenmark_classify():
-    out = F.falkenmark_classify(pd.Series([200.0, 700.0, 1300.0, 2500.0, np.nan]))
+def test_per_capita_classify():
+    out = F.per_capita_classify(pd.Series([200.0, 700.0, 1300.0, 2500.0, np.nan]))
     assert list(out) == ["Absolute scarcity", "Scarcity", "Stress", "No stress", None] or pd.isna(out.iloc[4])
     assert pd.isna(out.iloc[4])
 

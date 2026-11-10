@@ -23,6 +23,20 @@ BIS_10500 = {
     "turbidity": 1,           # NTU
 }
 
+# Default WQI standards (BIS IS 10500:2012, India)
+BIS_WQI_STANDARDS = {
+    "ph": 8.5,
+    "tds": 500,
+    "fluoride": 1.0,
+    "nitrate": 45,
+    "arsenic": 0.01,
+    "iron": 0.3,
+    "chloride": 250,
+    "sulphate": 200,
+    "hardness": 200,
+    "turbidity": 1,
+}
+
 
 def cgwb_rainfall_recharge(rainfall_mm, area_km2, infiltration_factor=0.10, specific_yield=None):
     """CGWB Ground Water Resource Estimation (GEC) rainfall recharge  [ham or MCM].
@@ -155,55 +169,16 @@ def effective_rainfall(precip_mm):
     out = np.where(p <= 250, p * (125 - 0.2 * p) / 125.0, 125.0 + 0.1 * p)
     return np.where(p < 0, np.nan, out)
 
-
-def penman_monteith_et0(t_mean, t_min, t_max, rh, u2, rs, elevation=0.0, lat_deg=20.0, doy=180):
-    """FAO-56 Penman-Monteith reference evapotranspiration  [mm/day].
-
-    t_mean/t_min/t_max in deg C, rh in %, u2 in m/s, rs in MJ/m2/day,
-    elevation in m, lat_deg in degrees, doy = day of year (1..365).
-    """
-    t_mean = np.asarray(t_mean, float); t_min = np.asarray(t_min, float)
-    t_max = np.asarray(t_max, float); rh = np.asarray(rh, float)
-    u2 = np.asarray(u2, float); rs = np.asarray(rs, float)
-    # saturation vapour pressure (kPa)
-    es = 0.6108 * np.exp(17.27 * t_max / (t_max + 237.3)) * 0.5 + \
-         0.6108 * np.exp(17.27 * t_min / (t_min + 237.3)) * 0.5
-    # actual vapour pressure
-    ea = es * (rh / 100.0)
-    # slope of saturation VP curve
-    delta = 4098 * (0.6108 * np.exp(17.27 * t_mean / (t_mean + 237.3))) / ((t_mean + 237.3) ** 2)
-    # atmospheric pressure & psychrometric constant
-    p = 101.3 * ((293 - 0.0065 * elevation) / 293) ** 5.26
-    gamma = 0.000665 * p
-    # extraterrestrial radiation Ra (MJ/m2/day)
-    phi = np.radians(lat_deg)
-    dr = 1 + 0.033 * np.cos(2 * np.pi * doy / 365.0)
-    decl = 0.409 * np.sin(2 * np.pi * doy / 365.0 - 1.39)
-    ws = np.arccos(-np.tan(phi) * np.tan(decl))
-    ra = (24 * 60 / np.pi) * 0.0820 * dr * (ws * np.sin(phi) * np.sin(decl)
-         + np.cos(phi) * np.cos(decl) * np.sin(ws))
-    # net shortwave / net radiation (simplified: Rns = 0.77*Rs, Rnl from temp)
-    rns = 0.77 * rs
-    rnl = 4.903e-9 * ((t_max + 273.16) ** 4 + (t_min + 273.16) ** 4) / 2 * \
-          (0.34 - 0.14 * np.sqrt(ea)) * (1.35 * rs / (0.75 * ra + 1e-6) - 0.35)
-    rnl = np.clip(rnl, 0, None)
-    rn = rns - rnl
-    g = 0.0
-    # Penman-Monteith
-    num = 0.408 * delta * (rn - g) + gamma * (900 / (t_mean + 273)) * u2 * (es - ea)
-    den = delta + gamma * (1 + 0.34 * u2)
-    et0 = num / den
-    return np.where(et0 < 0, 0.0, et0)
-
-
 def thornthwaite_pet(t_mean, lat_deg=20.0):
     """Thornthwaite potential evapotranspiration  [mm/month] (temperature-only).
 
     Simpler alternative to Penman-Monteith when only temperature is available.
     """
     t = np.asarray(t_mean, float)
-    # heat index
-    i = np.where(t > 0, (t / 5.0) ** 1.514, 0.0)
+    # heat index (only defined for t > 0)
+    i = np.zeros_like(t, dtype=float)
+    pos = t > 0
+    i[pos] = (t[pos] / 5.0) ** 1.514
     I = np.sum(i)  # annual heat index (scalar-ish); handle array by summing over time
     if np.ndim(t) > 0:
         I = float(np.nansum(i))
@@ -212,7 +187,22 @@ def thornthwaite_pet(t_mean, lat_deg=20.0):
     a = 6.75e-7 * I ** 3 - 7.71e-5 * I ** 2 + 1.792e-2 * I + 0.49239
     # day-length correction factor (approx, depends on latitude & month)
     # Use a constant factor ~1.0 for simplicity; refine if month is known.
-    pet = 1.6 * (10 * t / I) ** a
+    with np.errstate(invalid="ignore"):
+        pet = 1.6 * (10 * t / I) ** a
+    pet = np.where(t <= 0, 0.0, pet)
+    return pet
+
+
+def blaney_criddle_pet(t_mean, lat_deg=20.0, doy=180):
+    """Blaney-Criddle potential evapotranspiration  [mm/day].
+
+    Used by CWC and irrigation departments in India. Requires only
+    temperature and latitude (day-length factor).
+    PET = p * (0.46 * T + 8.13)  where p = % of annual daytime hours
+    """
+    t = np.asarray(t_mean, float)
+    p_factor = 0.29 + 0.05 * np.sin(2 * np.pi * (doy - 80) / 365.0)
+    pet = p_factor * (0.46 * t + 8.13)
     pet = np.where(t <= 0, 0.0, pet)
     return pet
 
@@ -237,15 +227,21 @@ def wei(abstraction, renewable):
 
 
 # ---------------------------------------------------------------- water quality
-def wqi(concentrations, standards, weights=None):
+def wqi(concentrations, standards=None, weights=None, param_names=None):
     """Weighted Arithmetic Water Quality Index.
 
     concentrations : array-like of measured values (one per parameter)
-    standards      : array-like of permissible limits (same order)
+    standards      : array-like of permissible limits (same order). If None,
+                     uses BIS IS 10500:2012 (India) standards.
     weights        : optional array-like of weights (default: 1/standard)
+    param_names    : optional list of parameter names (used to look up BIS standards)
     Returns a scalar WQI (or array if inputs are 2-D).
     """
     c = np.asarray(concentrations, float)
+    if standards is None:
+        if param_names is None:
+            param_names = list(BIS_WQI_STANDARDS.keys())
+        standards = np.array([BIS_WQI_STANDARDS[p] for p in param_names], dtype=float)
     s = np.asarray(standards, float)
     if weights is None:
         w = 1.0 / s
@@ -263,49 +259,7 @@ def exceedance(concentration, standard):
 
 
 # ---------------------------------------------------------------- drought (SPEI)
-def spei(water_balance, scale=3):
-    """Standardised Precipitation-Evapotranspiration Index (SPEI).
 
-    water_balance : 1-D array of monthly (P - PET) values.
-    scale         : accumulation period in months (3, 6, 12, ...).
-    Returns array of SPEI values aligned to input (NaN for first scale-1 months).
-    Uses the same per-calendar-month gamma fit as SPI.
-    """
-    wb = np.asarray(water_balance, float)
-    n = len(wb)
-    out = np.full(n, np.nan)
-    if n < scale + 12:
-        return out
-    roll = pd.Series(wb).rolling(scale, min_periods=scale).sum().to_numpy()
-    months = (np.arange(n) % 12) + 1
-    for m in range(1, 13):
-        idx = np.where(months == m)[0]
-        idx = idx[idx >= scale - 1]
-        vals = roll[idx]
-        vals = vals[~np.isnan(vals)]
-        if len(vals) < 8:
-            continue
-        # handle negative values for gamma fit (shift by min)
-        shift = 0.0
-        if np.min(vals) <= 0:
-            shift = abs(np.min(vals)) + 1.0
-        pos = vals + shift
-        p0 = float(np.mean(vals == 0)) if np.any(vals == 0) else 0.0
-        try:
-            a, loc, sc = stats.gamma.fit(pos, floc=0)
-        except Exception:
-            continue
-        for i in idx:
-            x = roll[i]
-            if np.isnan(x):
-                continue
-            cdf = p0 + (1 - p0) * stats.gamma.cdf(x + shift, a, loc=0, scale=sc)
-            cdf = min(max(cdf, 1e-4), 1 - 1e-4)
-            out[i] = float(stats.norm.ppf(cdf))
-    return out
-
-
-# ---------------------------------------------------------------- trend uncertainty
 def ols_confidence_interval(years, depth, alpha=0.05):
     """Confidence interval for the OLS slope of depth vs year.
 
@@ -485,9 +439,11 @@ def water_stress_index(df, weights):
 FALKENMARK_THRESHOLDS = (500, 1000, 1700)  # absolute scarcity / scarcity / stress (m3/person/yr)
 
 
-def falkenmark_classify(values):
-    """Falkenmark water-scarcity class from renewable water per person (m3/yr).
+def per_capita_classify(values):
+    """Per-capita water availability class (Indian water resources context).
 
+    Based on renewable water availability per person (m3/yr). India uses
+    per-capita water availability as a key indicator (National Water Policy).
     < 500  -> absolute scarcity
     500-1000 -> scarcity
     1000-1700 -> stress
@@ -497,6 +453,10 @@ def falkenmark_classify(values):
     out = pd.Series(np.select([s < 500, s < 1000, s < 1700], ["Absolute scarcity", "Scarcity", "Stress"],
                               "No stress"), index=s.index)
     return out.where(s.notna())
+
+
+# Backward-compatible alias
+falkenmark_classify = per_capita_classify
 CATEGORY_COLORS = {"Low": "#2a9d8f", "Moderate": "#e9c46a", "High": "#f4a261", "Critical": "#c1121f"}
 CATEGORY_ORDER = ["Low", "Moderate", "High", "Critical"]
 
