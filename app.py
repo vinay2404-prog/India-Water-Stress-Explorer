@@ -1,9 +1,9 @@
-"""India Water Stress Explorer  -  Streamlit app.
+"""India Water Stress Explorer  -  Streamlit app (enhanced).
 
 Run:  streamlit run app.py
-Data: built by `python src/build_data.py` from CGWB groundwater levels, IMD rainfall,
-      Census 2011 population, district GeoJSON, CGWB extraction (2025), CWC reservoir
-      storage (Mar 2024) and IMD monthly rainfall (SPI).
+Data: built by `python src/build_data.py` from CGWB groundwater levels, IMD rainfall
+      (normals + monthly), Census 2011 population, district GeoJSON, CGWB extraction
+      (2025), CWC reservoir storage (Mar 2024) and IMD monthly rainfall (SPI).
 """
 import sys
 from pathlib import Path
@@ -33,10 +33,8 @@ def load():
 
 @st.cache_data
 def load_geo():
-    """District boundaries (GeoJSON) with a stable geo_id on each feature."""
     p = ROOT / "data/geo/india_district.geojson"
     if not p.exists():
-        # Fallback: fetch from the public source once and cache locally.
         try:
             import urllib.request
             url = ("https://raw.githubusercontent.com/geohacker/india/"
@@ -53,22 +51,29 @@ def load_geo():
     return gj
 
 
+@st.cache_data
+def load_reservoir_power():
+    p = ROOT / "data/raw/reservoir_power_linkage.csv"
+    if not p.exists():
+        return None
+    return pd.read_csv(p)
+
+
 dist_raw, dy, stations = load()
 geojson = load_geo()
+reservoir_power = load_reservoir_power()
 
 
 def compute(df, sy, weights, cuts):
-    """Apply every formula to the district table (normalisation uses ALL districts so scores
-    stay comparable when the user filters)."""
     df = df.copy()
-    df["recharge_mm"] = F.recharge_wtf(sy, df["rise_m"])                          # R = Sy x dh x 1000
-    df["recharge_ratio"] = F.recharge_ratio(df["recharge_mm"], df["rain_annual"])  # R / P x 100
-    if "monsoon_share" not in df.columns:   # older processed files pre-built without it
+    df["recharge_mm"] = F.recharge_wtf(sy, df["rise_m"])
+    df["recharge_ratio"] = F.recharge_ratio(df["recharge_mm"], df["rain_annual"])
+    if "monsoon_share" not in df.columns:
         df["monsoon_share"] = F.monsoon_share(df["rain_jjas"], df["rain_annual"])
     comps = F.stress_components(df)
     for k in comps:
         df["c_" + k] = comps[k]
-    df["wsi"] = F.weighted_index(comps, weights)   # reuse comps (computed once)
+    df["wsi"] = F.weighted_index(comps, weights)
     df["category"] = F.classify(df["wsi"], cuts)
     df["depth_change"] = df["pre_depth"] - df["pre_2005_11"]
     yrs = F.years_to_reach(df["pre_depth"], df["trend"], df["well_depth"])
@@ -112,11 +117,14 @@ if df.empty:
 
 # ------------------------------------------------------------------ header
 st.title("India Water Stress Explorer")
-st.caption("Groundwater levels (CGWB, 1970-2025) combined with district rainfall normals (IMD). "
+st.caption("Groundwater levels (CGWB, 1970-2025) combined with district rainfall normals (IMD), "
+           "Census 2011 population, CGWB extraction (2025), CWC reservoir storage (Mar 2024) and IMD monthly rainfall (SPI). "
            "Depth values are metres below ground level - bigger means a deeper water table.")
-tabs = st.tabs(["Overview", "Rankings", "District explorer", "Rainfall vs groundwater", "Method & data"])
+tabs = st.tabs(["Overview", "Rankings", "District explorer", "Drought & SPI", "Extraction & reservoirs",
+                "Rainfall vs groundwater", "Method & data"])
 
-# ------------------------------------------------------------------ 1 overview
+
+# ================================================================== 1 OVERVIEW
 with tabs[0]:
     k = st.columns(6)
     k[0].metric("Districts analysed", f"{len(df)}")
@@ -139,7 +147,7 @@ with tabs[0]:
                 labels={"wsi": "Stress index"})
             fig.update_geos(fitbounds="locations", visible=False)
             fig.update_layout(height=560, margin=dict(l=0, r=0, t=10, b=0))
-            st.plotly_chart(fig, width='stretch')
+            st.plotly_chart(fig, width='stretch', key='chart_1')
         else:
             fig = px.scatter_geo(df, lat="lat", lon="lon", color="wsi", size="stations", size_max=14,
                                  color_continuous_scale="RdYlGn_r", range_color=(0, 100),
@@ -150,43 +158,85 @@ with tabs[0]:
             fig.update_geos(scope="asia", lonaxis_range=[67, 98], lataxis_range=[6, 37], showcountries=True,
                             showland=True, landcolor="#f3f1ea", countrycolor="#999")
             fig.update_layout(height=560, margin=dict(l=0, r=0, t=10, b=0))
-            st.plotly_chart(fig, width='stretch')
+            st.plotly_chart(fig, width='stretch', key='chart_2')
     with right:
         cnt = (df["category"].value_counts().reindex(F.CATEGORY_ORDER).fillna(0).rename_axis("category")
                .reset_index(name="districts"))
         fig = px.bar(cnt, x="category", y="districts", color="category", color_discrete_map=F.CATEGORY_COLORS,
                      text="districts")
         fig.update_layout(showlegend=False, height=270, margin=dict(l=0, r=0, t=10, b=0))
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, width='stretch', key='chart_3')
         fig = px.histogram(df, x="trend", nbins=40, labels={"trend": "Depletion rate (m/yr)"})
         fig.add_vline(x=0, line_dash="dash")
         fig.update_layout(height=270, margin=dict(l=0, r=0, t=10, b=0))
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, width='stretch', key='chart_4')
         st.caption("Right of the dashed line = water table getting deeper; left = recovering.")
 
-# ------------------------------------------------------------------ 2 rankings
+    # reservoir storage map
+    if "reservoir_storage_pct" in df.columns and df["reservoir_storage_pct"].notna().any():
+        st.subheader("Reservoir storage (CWC, March 2024)")
+        rcol1, rcol2 = st.columns([2, 1])
+        with rcol1:
+            if geojson is not None and "geo_id" in df.columns:
+                fig = px.choropleth(
+                    df.dropna(subset=["reservoir_storage_pct"]), geojson=geojson,
+                    locations="geo_id", featureidkey="properties.geo_id",
+                    color="reservoir_storage_pct", color_continuous_scale="Blues", range_color=(0, 100),
+                    hover_name="district",
+                    hover_data={"state": True, "reservoir_storage_pct": ":.1f", "reservoir_count": True, "geo_id": False},
+                    labels={"reservoir_storage_pct": "Storage %"})
+                fig.update_geos(fitbounds="locations", visible=False)
+                fig.update_layout(height=400, margin=dict(l=0, r=0, t=10, b=0))
+                st.plotly_chart(fig, width='stretch', key='chart_5')
+        with rcol2:
+            rr = df["reservoir_storage_pct"].dropna()
+            st.metric("Districts with reservoir data", f"{len(rr)}")
+            st.metric("Median storage", f"{rr.median():.1f} %")
+            st.metric("Districts < 30% storage", f"{int((rr < 30).sum())}")
+            fig = px.histogram(rr, nbins=20, labels={"value": "Storage % of live capacity"})
+            fig.update_layout(height=200, margin=dict(l=0, r=0, t=10, b=0), showlegend=False)
+            st.plotly_chart(fig, width='stretch', key='chart_6')
+
+
+# ================================================================== 2 RANKINGS
 with tabs[1]:
     n = st.slider("Show top N districts", 5, 50, 20)
     top = df.sort_values("wsi", ascending=False).head(n).sort_values("wsi")
     fig = px.bar(top, x="wsi", y="district", color="category", color_discrete_map=F.CATEGORY_COLORS,
-                 orientation="h", hover_data=["state", "pre_depth", "trend", "rain_annual", "recharge_ratio"],
+                 orientation="h", hover_data=["state", "pre_depth", "trend", "rain_annual", "recharge_ratio",
+                                             "stage_pct", "category_cgwb"],
                  labels={"wsi": "Water Stress Index", "district": ""})
     fig.update_layout(height=max(400, 22 * n), margin=dict(l=0, r=0, t=10, b=0))
-    st.plotly_chart(fig, width='stretch')
+    st.plotly_chart(fig, width='stretch', key='chart_7')
 
     st.subheader("State summary")
     ss = (df.groupby("state").agg(districts=("district", "size"), mean_wsi=("wsi", "mean"),
                                   median_depth=("pre_depth", "median"), median_trend=("trend", "median"),
-                                  rainfall=("rain_annual", "median")).reset_index())
+                                  rainfall=("rain_annual", "median"),
+                                  mean_stage=("stage_pct", "mean"),
+                                  mean_reservoir=("reservoir_storage_pct", "mean")).reset_index())
     ss = ss[ss["districts"] >= 3].sort_values("mean_wsi", ascending=False)
     fig = px.bar(ss, x="state", y="mean_wsi", color="mean_wsi", color_continuous_scale="RdYlGn_r",
                  range_color=(0, 100), labels={"mean_wsi": "Mean index", "state": ""})
     fig.update_layout(height=380, margin=dict(l=0, r=0, t=10, b=0), coloraxis_showscale=False)
-    st.plotly_chart(fig, width='stretch')
+    st.plotly_chart(fig, width='stretch', key='chart_8')
     st.caption("States with fewer than 3 analysed districts are omitted.")
     st.dataframe(ss.round(2), width='stretch', hide_index=True)
 
-# ------------------------------------------------------------------ 3 district explorer
+    # CGWB category distribution
+    st.subheader("CGWB extraction category (district-level)")
+    cc = df["category_cgwb"].value_counts().reindex(
+        ["Safe", "Semi-critical", "Critical", "Over-exploited"]).fillna(0).reset_index()
+    cc.columns = ["category", "districts"]
+    fig = px.bar(cc, x="category", y="districts", color="category",
+                 color_discrete_map={"Safe": "#2a9d8f", "Semi-critical": "#e9c46a",
+                                     "Critical": "#f4a261", "Over-exploited": "#c1121f"},
+                 text="districts")
+    fig.update_layout(showlegend=False, height=300, margin=dict(l=0, r=0, t=10, b=0))
+    st.plotly_chart(fig, width='stretch', key='chart_9')
+
+
+# ================================================================== 3 DISTRICT EXPLORER
 with tabs[2]:
     c = st.columns(2)
     state = c[0].selectbox("State", sorted(df["state"].unique()))
@@ -264,7 +314,7 @@ with tabs[2]:
                                      line=dict(dash="dash", color="#c1121f")))
         fig.update_yaxes(autorange="reversed", title="Depth to water (m)")
         fig.update_layout(height=420, margin=dict(l=0, r=0, t=10, b=0), legend=dict(orientation="h"))
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, width='stretch', key='chart_10')
         st.caption("Y-axis reversed: lines going down = water table getting deeper.")
     with right:
         wn = pd.Series(w) / sum(w.values())
@@ -273,7 +323,7 @@ with tabs[2]:
         fig = px.bar(contrib, x="points", y="component", orientation="h",
                      labels={"points": "Points of the index", "component": ""})
         fig.update_layout(height=260, margin=dict(l=0, r=0, t=10, b=0))
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, width='stretch', key='chart_11')
 
     st.subheader("The formulas, with this district's numbers")
     d_now = float(r.pre_depth)
@@ -288,8 +338,140 @@ with tabs[2]:
                 "exceeds 200 years.")
     st.caption(f"Rainfall matched by: {r.rain_match}. Monsoon (Jun-Sep) share of rainfall: {r.monsoon_share:.0f}%.")
 
-# ------------------------------------------------------------------ 4 rainfall vs groundwater
+
+# ================================================================== 4 DROUGHT & SPI
 with tabs[3]:
+    st.subheader("Standardised Precipitation Index (SPI)")
+    st.caption("SPI-12 measures 12-month rainfall anomaly. Negative = drier than normal. "
+               "Available for 118 districts with monthly rainfall data (1969-2020).")
+    spi_df = df.dropna(subset=["spi_12_latest"])
+    if len(spi_df) > 0 and geojson is not None and "geo_id" in spi_df.columns:
+        fig = px.choropleth(
+            spi_df, geojson=geojson, locations="geo_id", featureidkey="properties.geo_id",
+            color="spi_12_latest", color_continuous_scale="RdBu", range_color=(-3, 3),
+            hover_name="district",
+            hover_data={"state": True, "spi_12_latest": ":.2f", "spi_3_latest": ":.2f",
+                        "spi_12_mean_12m": ":.2f", "geo_id": False},
+            labels={"spi_12_latest": "SPI-12"})
+        fig.update_geos(fitbounds="locations", visible=False)
+        fig.update_layout(height=500, margin=dict(l=0, r=0, t=10, b=0))
+        st.plotly_chart(fig, width='stretch', key='chart_12')
+    elif len(spi_df) > 0:
+        fig = px.scatter_geo(spi_df, lat="lat", lon="lon", color="spi_12_latest",
+                             color_continuous_scale="RdBu", range_color=(-3, 3),
+                             hover_name="district", size_max=10,
+                             labels={"spi_12_latest": "SPI-12"})
+        fig.update_geos(scope="asia", lonaxis_range=[67, 98], lataxis_range=[6, 37])
+        fig.update_layout(height=500, margin=dict(l=0, r=0, t=10, b=0))
+        st.plotly_chart(fig, width='stretch', key='chart_13')
+    else:
+        st.info("No SPI data available. Provide data/raw/district_rainfall_monthly.csv to enable.")
+
+    if len(spi_df) > 0:
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Districts with SPI data", f"{len(spi_df)}")
+            drought = F.imd_drought_classify(spi_df["spi_12_latest"])
+            dc = drought.value_counts().reset_index()
+            dc.columns = ["class", "districts"]
+            fig = px.bar(dc, x="class", y="districts", color="class",
+                         color_discrete_map={"Extreme drought": "#c1121f", "Severe drought": "#f4a261",
+                                            "Moderate drought": "#e9c46a", "No drought": "#2a9d8f"})
+            fig.update_layout(showlegend=False, height=300, margin=dict(l=0, r=0, t=10, b=0))
+            st.plotly_chart(fig, width='stretch', key='chart_14')
+        with col2:
+            fig = px.histogram(spi_df, x="spi_12_latest", nbins=30,
+                               labels={"spi_12_latest": "SPI-12"})
+            fig.add_vline(x=0, line_dash="dash", line_color="black")
+            fig.add_vline(x=-1, line_dash="dot", line_color="red")
+            fig.update_layout(height=300, margin=dict(l=0, r=0, t=10, b=0))
+            st.plotly_chart(fig, width='stretch', key='chart_15')
+            st.caption("SPI < -1 (red dotted) = drought; SPI < -2 = extreme drought.")
+
+    # SPI time series for a selected district
+    st.subheader("SPI time series")
+    spi_path = ROOT / "data/processed/district_spi.csv"
+    if spi_path.exists():
+        spi_ts = pd.read_csv(spi_path)
+        spi_states = sorted(spi_ts["state"].unique())
+        ts_state = st.selectbox("State (SPI)", spi_states, key="spi_state")
+        ts_names = sorted(spi_ts.loc[spi_ts["state"] == ts_state, "district"].unique())
+        ts_name = st.selectbox("District (SPI)", ts_names, key="spi_district")
+        ts_df = spi_ts[(spi_ts["state"] == ts_state) & (spi_ts["district"] == ts_name)].sort_values(["year", "month"])
+        ts_df["date"] = pd.to_datetime(ts_df[["year", "month"]].assign(day=1))
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=ts_df["date"], y=ts_df["spi_3"], mode="lines", name="SPI-3", line=dict(color="#457b9d")))
+        fig.add_trace(go.Scatter(x=ts_df["date"], y=ts_df["spi_12"], mode="lines", name="SPI-12", line=dict(color="#c1121f")))
+        fig.add_hline(y=0, line_dash="dash", line_color="black")
+        fig.add_hline(y=-1, line_dash="dot", line_color="red")
+        fig.update_layout(height=350, margin=dict(l=0, r=0, t=10, b=0), legend=dict(orientation="h"))
+        st.plotly_chart(fig, width='stretch', key='chart_16')
+    else:
+        st.info("No district_spi.csv found.")
+
+
+# ================================================================== 5 EXTRACTION & RESERVOIRS
+with tabs[4]:
+    st.subheader("CGWB stage of groundwater extraction (district level, 2025)")
+    if geojson is not None and "geo_id" in df.columns:
+        fig = px.choropleth(
+            df, geojson=geojson, locations="geo_id", featureidkey="properties.geo_id",
+            color="stage_pct", color_continuous_scale="YlOrRd", range_color=(0, 150),
+            hover_name="district",
+            hover_data={"state": True, "stage_pct": ":.1f", "category_cgwb": True, "geo_id": False},
+            labels={"stage_pct": "Stage of extraction %"})
+        fig.update_geos(fitbounds="locations", visible=False)
+        fig.update_layout(height=500, margin=dict(l=0, r=0, t=10, b=0))
+        st.plotly_chart(fig, width='stretch', key='chart_17')
+
+    # extraction breakdown
+    st.subheader("Extraction breakdown (ham) - top 20 districts")
+    ext_cols = ["extraction_irrigation_ham", "extraction_industrial_ham", "extraction_domestic_ham"]
+    if all(c in df.columns for c in ext_cols):
+        top_ext = df.nlargest(20, "extraction_ham").copy()
+        fig = go.Figure()
+        fig.add_trace(go.Bar(name="Irrigation", x=top_ext["district"], y=top_ext["extraction_irrigation_ham"],
+                             marker_color="#2a9d8f"))
+        fig.add_trace(go.Bar(name="Industrial", x=top_ext["district"], y=top_ext["extraction_industrial_ham"],
+                             marker_color="#e9c46a"))
+        fig.add_trace(go.Bar(name="Domestic", x=top_ext["district"], y=top_ext["extraction_domestic_ham"],
+                             marker_color="#457b9d"))
+        fig.update_layout(barmode="stack", height=400, margin=dict(l=0, r=0, t=10, b=0),
+                          xaxis_tickangle=-45, legend=dict(orientation="h"))
+        st.plotly_chart(fig, width='stretch', key='chart_18')
+
+    # reservoir storage
+    st.subheader("Reservoir storage (CWC, March 2024)")
+    if "reservoir_storage_pct" in df.columns and df["reservoir_storage_pct"].notna().any():
+        rcol1, rcol2 = st.columns([2, 1])
+        with rcol1:
+            if geojson is not None and "geo_id" in df.columns:
+                fig = px.choropleth(
+                    df.dropna(subset=["reservoir_storage_pct"]), geojson=geojson,
+                    locations="geo_id", featureidkey="properties.geo_id",
+                    color="reservoir_storage_pct", color_continuous_scale="Blues", range_color=(0, 100),
+                    hover_name="district",
+                    hover_data={"state": True, "reservoir_storage_pct": ":.1f", "reservoir_count": True, "geo_id": False},
+                    labels={"reservoir_storage_pct": "Storage %"})
+                fig.update_geos(fitbounds="locations", visible=False)
+                fig.update_layout(height=400, margin=dict(l=0, r=0, t=10, b=0))
+                st.plotly_chart(fig, width='stretch', key='chart_19')
+        with rcol2:
+            rr = df["reservoir_storage_pct"].dropna()
+            st.metric("Districts with reservoir data", f"{len(rr)}")
+            st.metric("Median storage", f"{rr.median():.1f} %")
+            st.metric("Districts < 30% storage", f"{int((rr < 30).sum())}")
+            fig = px.histogram(rr, nbins=20, labels={"value": "Storage % of live capacity"})
+            fig.update_layout(height=200, margin=dict(l=0, r=0, t=10, b=0), showlegend=False)
+            st.plotly_chart(fig, width='stretch', key='chart_20')
+
+    if reservoir_power is not None:
+        st.subheader("Reservoirs feeding thermal power plants (NITI Aayog ICED)")
+        st.dataframe(reservoir_power, width='stretch', hide_index=True)
+
+
+# ================================================================== 6 RAINFALL VS GW
+with tabs[5]:
     ycol = st.selectbox("Groundwater measure (y-axis)", ["pre_depth", "trend", "recharge_ratio", "depth_change"],
                         format_func=lambda x: {"pre_depth": "Pre-monsoon depth (m)", "trend": "Depletion rate (m/yr)",
                                                "recharge_ratio": "Recharge ratio (% of rainfall)",
@@ -303,10 +485,10 @@ with tabs[3]:
         xs = np.linspace(sub["rain_annual"].min(), sub["rain_annual"].max(), 50)
         fig.add_trace(go.Scatter(x=xs, y=a + b * xs, mode="lines", name="Linear fit", line=dict(color="black", dash="dash")))
     fig.update_layout(height=520, margin=dict(l=0, r=0, t=10, b=0))
-    st.plotly_chart(fig, width='stretch')
+    st.plotly_chart(fig, width='stretch', key='chart_21')
     rho = np.nan
     valid = sub.dropna(subset=["rain_annual", ycol])
-    if len(valid) >= 3:   # correlation is meaningless below 3 points
+    if len(valid) >= 3:
         rho = valid["rain_annual"].rank().corr(valid[ycol].rank())
     st.metric("Spearman rank correlation with rainfall",
               "n/a (too few districts)" if pd.isna(rho) else f"{rho:+.2f}")
@@ -314,8 +496,20 @@ with tabs[3]:
                "Weak correlations mean rainfall alone does not explain groundwater stress - "
                "extraction for irrigation matters a great deal.")
 
-# ------------------------------------------------------------------ 5 method
-with tabs[4]:
+    # correlation matrix heatmap
+    st.subheader("Correlation matrix (key indicators)")
+    corr_cols = ["pre_depth", "trend", "rain_annual", "recharge_ratio", "wsi",
+                 "stage_pct", "reservoir_storage_pct", "population", "falkenmark_m3_per_person"]
+    corr_cols = [c for c in corr_cols if c in df.columns]
+    corr_df = df[corr_cols].corr(method="spearman")
+    fig = px.imshow(corr_df, text_auto=".2f", color_continuous_scale="RdBu_r",
+                    zmin=-1, zmax=1, aspect="auto")
+    fig.update_layout(height=450, margin=dict(l=0, r=0, t=10, b=0))
+    st.plotly_chart(fig, width='stretch', key='chart_22')
+
+
+# ================================================================== 7 METHOD & DATA
+with tabs[6]:
     st.header("Formulas")
     st.latex(r"\text{rate} = \frac{n\sum xy - \sum x \sum y}{n\sum x^2 - (\sum x)^2}\quad[\text{m/yr, OLS of pre-monsoon depth on year, 2010-2025}]")
     st.latex(r"\Delta h = \max(D_\text{pre} - D_\text{post},\,0)")
@@ -324,23 +518,26 @@ with tabs[4]:
     st.latex(r"z = \operatorname{clip}\!\left(\frac{x - P_5}{P_{95} - P_5},\,0,\,1\right)")
     st.latex(r"\text{WSI} = 100 \times \frac{w_d z_\text{depth} + w_t z_\text{trend} + w_r (1 - z_\text{rain}) + w_c (1 - z_\text{recharge})}{w_d + w_t + w_r + w_c}")
     st.latex(r"t_\text{depletion} = \frac{D_\text{well} - D_0}{\text{rate}}\quad(\text{rate} > 0)")
+    st.latex(r"\text{Stage of extraction} = \frac{\text{Annual GW Extraction}}{\text{Annual Extractable GW Resource}} \times 100")
+    st.latex(r"\text{SPI} = \Phi^{-1}\!\left(P_0 + (1-P_0)\,\Gamma_{\text{cdf}}(x;\alpha,\beta)\right)")
+    st.latex(r"\text{Falkenmark} = \frac{P \times \text{area}}{\text{population}} \times 10^3 \quad [\text{m}^3/\text{person/yr}]")
     st.header("Data and cleaning")
     st.markdown(
         "- **Groundwater:** CGWB station readings 1970-2025. Readings outside 0-100 m were removed. "
         "Pre-monsoon = mean of April and May; post-monsoon = November. District values are medians across stations "
         "(recent window 2021-25; trend 2010-25, at least 8 years per station, at least 3 stations per district).\n"
         "- **Rainfall:** IMD district normals (annual and Jun-Sep). Joined by state + district name.\n"
-        "- **Population:** Census of India 2011 (district level) - used for the Falkenmark indicator "
-        "(rainfall volume per person). Telangana districts use the 2011 Andhra Pradesh figures.\n"
-        "- **District area:** derived from the district GeoJSON (spherical polygon area) - used to convert rainfall (mm) "
-        "into a volume for the Falkenmark indicator.\n"
+        "- **Monthly rainfall (SPI):** IMD station data (1969-2020) aggregated to districts. SPI-3 and SPI-12 computed "
+        "via per-calendar-month gamma fit. Available for 118 districts.\n"
+        "- **Population:** Census of India 2011 (district level) - used for the Falkenmark indicator. "
+        "Telangana districts use the 2011 Andhra Pradesh figures.\n"
+        "- **District area:** derived from the district GeoJSON (spherical polygon area).\n"
         "- **Reservoir storage:** CWC daily reservoir levels (March 2024) - storage as % of live capacity; "
-        "mapped to districts via nearest centroid, state-level fallback where no reservoir is nearby.\n"
+        "mapped to districts via nearest centroid, state-level fallback.\n"
         "- **Reservoir-power linkage:** NITI Aayog ICED - which reservoirs feed thermal power plants.\n"
         "- **Stage of extraction:** CGWB Dynamic Ground Water Resources assessment (district level, 2025 report, "
         "parsed from the National Compilation PDF; 473 of 482 districts matched). State-level fallback where missing.\n"
-        "- **Specific yield hint:** CGWB guidance (hard-rock \u2248 0.02-0.04 vs alluvial \u2248 0.10-0.16), by state; "
-        "the slider still overrides it for the recharge calculation.")
+        "- **Specific yield hint:** CGWB guidance (hard-rock \u2248 0.02-0.04 vs alluvial \u2248 0.10-0.16), by state.")
     mt = dist_raw["rain_match"].value_counts().rename_axis("how rainfall was matched").reset_index(name="districts")
     st.dataframe(mt, hide_index=True)
     st.subheader("Geo / population match quality")
@@ -353,19 +550,18 @@ with tabs[4]:
     if rp_path.exists():
         rp = pd.read_csv(rp_path)
         st.dataframe(rp, width='stretch', hide_index=True)
-        st.caption("Source: NITI Aayog ICED. Shows which reservoirs supply water to thermal power plants "
-                   "(power-sector water dependency). Live reservoir storage (CWC, Mar 2024) is shown above.")
+        st.caption("Source: NITI Aayog ICED.")
     else:
         st.info("No reservoir linkage data found.")
     st.header("Limitations")
     st.markdown(
         "- The index is **relative** (districts ranked against each other), not an absolute scarcity measure.\n"
-        "- **Stage of extraction:** CGWB Dynamic Ground Water Resources assessment (district level, 2025 report, "
-        "parsed from the National Compilation PDF; 473 of 482 districts matched). State-level fallback where missing.\n"
+        "- **Stage of extraction** is district-level (CGWB 2025); 9 districts fall back to state-level.\n"
         "- The WTF recharge depends strongly on the specific yield you pick and ignores monsoon pumping.\n"
         "- The Falkenmark indicator here is a **rainfall-volume proxy** (not blue-water availability), using 2011 population.\n"
         "- Districts with state-average rainfall (old vs new district names) are less precise.\n"
         "- Station networks changed over time, so district trends reflect the stations that reported.\n"
-        "- District boundaries are from a 2011-era GeoJSON; newer (post-2011) districts inherit parent geometries where matched.")
+        "- District boundaries are from a 2011-era GeoJSON; newer (post-2011) districts inherit parent geometries where matched.\n"
+        "- Reservoir storage is a single month (March 2024); SPI covers 118 of 482 districts.")
     st.download_button("Download district results (CSV)", df.round(3).to_csv(index=False).encode(),
                        file_name="water_stress_results.csv", mime="text/csv")
