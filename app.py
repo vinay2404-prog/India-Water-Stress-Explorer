@@ -1,7 +1,9 @@
 """India Water Stress Explorer  -  Streamlit app.
 
 Run:  streamlit run app.py
-Data: built by `python src/build_data.py` from CGWB groundwater levels + IMD district rainfall normals.
+Data: built by `python src/build_data.py` from CGWB groundwater levels, IMD rainfall,
+      Census 2011 population, district GeoJSON, CGWB extraction (2025), CWC reservoir
+      storage (Mar 2024) and IMD monthly rainfall (SPI).
 """
 import sys
 from pathlib import Path
@@ -352,13 +354,14 @@ with tabs[4]:
         rp = pd.read_csv(rp_path)
         st.dataframe(rp, width='stretch', hide_index=True)
         st.caption("Source: NITI Aayog ICED. Shows which reservoirs supply water to thermal power plants "
-                   "(power-sector water dependency). Live reservoir storage (CWC) is not included here.")
+                   "(power-sector water dependency). Live reservoir storage (CWC, Mar 2024) is shown above.")
     else:
         st.info("No reservoir linkage data found.")
     st.header("Limitations")
     st.markdown(
         "- The index is **relative** (districts ranked against each other), not an absolute scarcity measure.\n"
-        "- **Stage of extraction** is shown at **state level only** (CGWB publishes district-level assessments as PDFs).\n"
+        "- **Stage of extraction:** CGWB Dynamic Ground Water Resources assessment (district level, 2025 report, "
+        "parsed from the National Compilation PDF; 473 of 482 districts matched). State-level fallback where missing.\n"
         "- The WTF recharge depends strongly on the specific yield you pick and ignores monsoon pumping.\n"
         "- The Falkenmark indicator here is a **rainfall-volume proxy** (not blue-water availability), using 2011 population.\n"
         "- Districts with state-average rainfall (old vs new district names) are less precise.\n"
