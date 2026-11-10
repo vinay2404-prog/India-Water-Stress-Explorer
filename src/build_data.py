@@ -442,7 +442,7 @@ if SPI_PATH.exists():
             "state": st_name, "district": dist_name,
             "spi_3_latest": float(valid3[-1]) if len(valid3) else np.nan,
             "spi_12_latest": float(valid12[-1]) if len(valid12) else np.nan,
-            "spi_12_mean_12m": float(np.nanmean(s12[-12:])) if len(s12) >= 12 else np.nan,
+            "spi_12_mean_12m": (float(np.nanmean(s12[-12:])) if (len(s12) >= 12 and np.any(~np.isnan(s12[-12:]))) else np.nan),
         })
         spi_ts_frames.append(pd.DataFrame({
             "state": st_name, "district": dist_name,
