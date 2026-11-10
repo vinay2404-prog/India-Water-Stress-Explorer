@@ -157,11 +157,8 @@ dist = pd.concat([dist, res], axis=1)
 dist["monsoon_share"] = F.monsoon_share(dist.rain_jjas, dist.rain_annual)
 print("rainfall match:\n", dist.rain_match.value_counts().to_string())
 
-# ------------------------------------------------------------------ 3. Tier-1 enrichment: population (Census 2011), district area +
-#    Falkenmark water-per-capita (from the district GeoJSON), stage of groundwater
-#    extraction (CGWB, state level) and a specific-yield hint (aquifer type).
+# ------------------------------------------------------------------ 3. Tier-1 enrichment: district area + geo_id (GeoJSON), SPI (optional).
 GEO_PATH = ROOT / "data/geo/india_district.geojson"
-POP_PATH = RAW / "india_census_2011.csv"
 
 # 3a. District area (km2) + geo_id from the GeoJSON (pure-Python spherical area).
 def _spherical_area_km2(geom):
@@ -288,132 +285,6 @@ else:
     dist["area_km2"] = np.nan
     print("WARNING: geojson not found at", GEO_PATH, "- choropleth disabled")
 
-# 3b. Population (Census 2011) + Falkenmark water per capita.
-POP_ALIASES = dict(DISTRICT_ALIASES)
-POP_ALIASES.update({
-    "Gurugram": "Gurgaon", "Ballari": "Bellary", "Kalaburagi": "Gulbarga",
-    "Prayagraj": "Allahabad", "Ayodhya": "Faizabad", "Tuticorin": "Thoothukkudi",
-    "Mohali": "Sahibzada Ajit Singh Nagar", "Sbs Nagar": "Shahid Bhagat Singh Nagar",
-    "Cooch Behar": "Koch Bihar", "Howrah": "Haora",
-    "North 24 Parganas": "North Twenty Four Parganas",
-    "South 24 Parganas": "South Twenty Four Parganas",
-    "G.B. Nagar": "Gautam Buddha Nagar", "Trichur": "Thrissur",
-    "Kabirdham": "Kabeerdham", "Beed": "Bid", "Raigad": "Raigarh",
-    "Cuddapah": "Y.S.R.", "Nellore": "Sri Potti Sriramulu Nellore",
-    "Kanker": "Uttar Bastar Kanker", "Dang": "The Dangs",
-    "Charkhi Dadri": "Bhiwani", "Nuh": "Mewat", "Agar Malwa": "Shajapur",
-    "Palghar": "Thane", "Sonapur": "Subarnapur", "Fazilka": "Firozpur",
-    "Pathankot": "Gurdaspur", "Ropar": "Rupnagar",
-    "Tuticorin": "Thoothukkudi", "Praygraj": "Allahabad",
-    "Jhargram": "Paschim Medinipur", "North Dinajpur": "Uttar Dinajpur",
-    "Paschim Bardhaman": "Barddhaman", "West Medinipur": "Paschim Medinipur",
-    "Gaurella Pendra Marwahi": "Bilaspur", "Kheri": "Lakhimpur Kheri",
-    "Jyotiba Phule Nagar": "Amroha", "Ayodhya": "Faizabad",
-    "G.B. Nagar": "Gautam Buddha Nagar", "Mau": "Mau",
-    "Champawat": "Champawat", "Thrissur": "Thrissur",
-})
-
-
-def _match_pop(state, district):
-    target_state = "Andhra Pradesh" if state == "Telangana" else ("Daman And Diu" if state == "Gujarat" and district == "Daman" else state)
-    cand = pop[pop.state_n == target_state]
-    k = norm(district)
-    a = POP_ALIASES.get(district)
-    if a:
-        ex = cand[cand.dname_n == norm(a)]
-        if len(ex):
-            return int(ex.iloc[0].Population)
-    ex = cand[cand.dname_n == k]
-    if len(ex):
-        return int(ex.iloc[0].Population)
-    mm = difflib.get_close_matches(k, list(cand.dname_n), n=1, cutoff=0.75)
-    if mm:
-        return int(cand[cand.dname_n == mm[0]].iloc[0].Population)
-    return np.nan
-
-
-if POP_PATH.exists():
-    pop = pd.read_csv(POP_PATH)
-    pop["state_n"] = pop["State name"].map(_state_key).replace("Telangana", "Andhra Pradesh")
-    pop["dname_n"] = pop["District name"].map(norm)
-    dist["population"] = dist.apply(lambda r: _match_pop(r.state, r.district), axis=1)
-    # Falkenmark-style: renewable water (rainfall volume) per person, m3/person/yr
-    dist["rainfall_volume_mcm"] = dist["rain_annual"] / 1000.0 * dist["area_km2"]  # million m3 (mm->m * km2)
-    dist["falkenmark_m3_per_person"] = (dist["rainfall_volume_mcm"] * 1e6) / dist["population"]
-    print("population matched:", dist.population.notna().sum(), "of", len(dist))
-else:
-    dist["population"] = np.nan
-    dist["rainfall_volume_mcm"] = np.nan
-    dist["falkenmark_m3_per_person"] = np.nan
-    print("WARNING: census file not found at", POP_PATH)
-
-# 3c. Stage of groundwater extraction (CGWB, state level, 2024-25 assessment).
-STAGE_OF_EXTRACTION = {
-    "Andhra Pradesh": 31.51, "Arunachal Pradesh": 0.41, "Assam": 10.0, "Bihar": 35.0,
-    "Chhattisgarh": 48.18, "Goa": 15.0, "Gujarat": 62.0, "Haryana": 136.75,
-    "Himachal Pradesh": 38.50, "Jharkhand": 32.89, "Jammu & Kashmir": 30.0,
-    "Karnataka": 66.49, "Kerala": 49.95, "Madhya Pradesh": 59.32, "Maharashtra": 51.79,
-    "Manipur": 9.09, "Meghalaya": 5.24, "Mizoram": 5.0, "Nagaland": 4.72,
-    "Odisha": 48.75, "Punjab": 145.0, "Rajasthan": 147.11, "Sikkim": 5.0,
-    "Tamil Nadu": 73.50, "Telangana": 46.69, "Tripura": 10.06, "Uttar Pradesh": 70.0,
-    "Uttarakhand": 45.0, "West Bengal": 45.19, "Delhi": 92.10, "Chandigarh": 67.0,
-    "Puducherry": 50.0, "Andaman & Nicobar": 5.0, "Dadra & Nagar Haveli": 30.0,
-    "Daman & Diu": 30.0, "Lakshadweep": 5.0,
-}
-# 3c/3f. Stage of groundwater extraction: prefer district-level (CGWB 2025 report);
-# fall back to state-level STAGE_OF_EXTRACTION where district-level is missing.
-EXT_PATH = RAW / "district_extraction.csv"
-STAGE_OF_EXTRACTION = {
-    "Andhra Pradesh": 31.51, "Arunachal Pradesh": 0.41, "Assam": 10.0, "Bihar": 35.0,
-    "Chhattisgarh": 48.18, "Goa": 15.0, "Gujarat": 62.0, "Haryana": 136.75,
-    "Himachal Pradesh": 38.50, "Jharkhand": 32.89, "Jammu & Kashmir": 30.0,
-    "Karnataka": 66.49, "Kerala": 49.95, "Madhya Pradesh": 59.32, "Maharashtra": 51.79,
-    "Manipur": 9.09, "Meghalaya": 5.24, "Mizoram": 5.0, "Nagaland": 4.72,
-    "Odisha": 48.75, "Punjab": 145.0, "Rajasthan": 147.11, "Sikkim": 5.0,
-    "Tamil Nadu": 73.50, "Telangana": 46.69, "Tripura": 10.06, "Uttar Pradesh": 70.0,
-    "Uttarakhand": 45.0, "West Bengal": 45.19, "Delhi": 92.10, "Chandigarh": 67.0,
-    "Puducherry": 50.0, "Andaman & Nicobar": 5.0, "Dadra & Nagar Haveli": 30.0,
-    "Daman & Diu": 30.0, "Lakshadweep": 5.0,
-}
-if EXT_PATH.exists():
-    ext = pd.read_csv(EXT_PATH)
-    keep = ["state", "district", "stage_pct", "category_cgwb", "recharge_ham",
-            "extractable_ham", "extraction_ham", "extraction_irrigation_ham",
-            "extraction_industrial_ham", "extraction_domestic_ham",
-            "net_availability_ham"]
-    keep = [c for c in keep if c in ext.columns]
-    ext = ext[keep].copy()
-    ext = ext.drop_duplicates(subset=["state", "district"], keep="first")
-    dist = dist.merge(ext, on=["state", "district"], how="left", suffixes=("", "_cgwb"))
-    print("district extraction matched:", dist.stage_pct.notna().sum(), "of", len(dist))
-else:
-    dist["stage_pct"] = np.nan
-    dist["category_cgwb"] = None
-    print("NOTE: district_extraction.csv not found - stage of extraction will be state-level only.")
-
-dist["stage_pct"] = dist["stage_pct"].fillna(dist["state"].map(STAGE_OF_EXTRACTION))
-
-
-def _cgwb_cat(p):
-    if pd.isna(p):
-        return None
-    if p > 100:
-        return "Over-exploited"
-    if p >= 90:
-        return "Critical"
-    if p >= 70:
-        return "Semi-critical"
-    return "Safe"
-
-
-if "category_cgwb" not in dist.columns:
-    dist["category_cgwb"] = None
-mask = dist["category_cgwb"].isna() & dist["stage_pct"].notna()
-dist.loc[mask, "category_cgwb"] = dist.loc[mask, "stage_pct"].apply(_cgwb_cat)
-
-if "stage_extraction_pct" in dist.columns:
-    dist = dist.drop(columns=["stage_extraction_pct"])
-
 # 3d. Specific-yield hint by aquifer type (state-level heuristic, CGWB guidance).
 HARD_ROCK_STATES = {"Karnataka", "Tamil Nadu", "Maharashtra", "Madhya Pradesh",
                     "Rajasthan", "Andhra Pradesh", "Telangana", "Odisha", "Jharkhand",
@@ -458,33 +329,6 @@ else:
     dist["spi_12_latest"] = np.nan
     dist["spi_12_mean_12m"] = np.nan
     print("NOTE: district_rainfall_monthly.csv not found - SPI skipped (see README).")
-
-# 3g. Reservoir storage (CWC, March 2024) - median storage % per district/state.
-RES_PATH = RAW / "reservoir_storage.csv"
-if RES_PATH.exists():
-    res = pd.read_csv(RES_PATH)
-    # district-level: median storage_pct across reservoirs mapped to that district
-    dist_res = res.groupby(["state", "district"], as_index=False).agg(
-        reservoir_storage_pct=("storage_pct_mean", "median"),
-        reservoir_count=("Reservoir_name", "nunique"))
-    dist = dist.merge(dist_res, on=["state", "district"], how="left")
-    # state-level fallback for districts without a reservoir
-    state_res = res.groupby("state", as_index=False).agg(
-        reservoir_storage_pct_state=("storage_pct_mean", "median"))
-    dist = dist.merge(state_res, on="state", how="left")
-    mask = dist["reservoir_storage_pct"].isna()
-    dist.loc[mask, "reservoir_storage_pct"] = dist.loc[mask, "reservoir_storage_pct_state"]
-    dist = dist.drop(columns=["reservoir_storage_pct_state"])
-    # reservoir stress: 0 (full) .. 1 (empty)
-    dist["reservoir_stress"] = 1 - (dist["reservoir_storage_pct"] / 100.0)
-    dist["reservoir_stress"] = dist["reservoir_stress"].clip(0, 1)
-    print("reservoir storage matched:", dist.reservoir_storage_pct.notna().sum(), "of", len(dist),
-          "(district+state fallback)")
-else:
-    dist["reservoir_storage_pct"] = np.nan
-    dist["reservoir_stress"] = np.nan
-    dist["reservoir_count"] = 0
-    print("NOTE: reservoir_storage.csv not found - reservoir stress skipped.")
 
 dist = dist[dist.stations >= 3].dropna(subset=["pre_depth", "trend", "rain_annual", "rise_m"]).reset_index(drop=True)
 print("districts analysed:", len(dist))
